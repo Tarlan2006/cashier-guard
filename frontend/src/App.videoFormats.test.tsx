@@ -44,6 +44,8 @@ beforeEach(() => {
     }),
   );
   reviewMock.mockReturnValue({
+    open: vi.fn(),
+    applyHumanReview: vi.fn(),
     job: null,
     phase: "idle",
     issue: null,

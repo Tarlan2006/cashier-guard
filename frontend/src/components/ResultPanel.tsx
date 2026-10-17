@@ -14,9 +14,10 @@ import {
   ScanLine,
   ShieldCheck,
 } from "lucide-react";
+import { EventReview, decisionLabels } from "./EventReview";
 import { ReviewSummary } from "./ReviewSummary";
 import { timecode } from "../api";
-import type { ApiError, Frame, Job } from "../api";
+import type { ApiError, Frame, Job, HumanReview } from "../api";
 import { getEventAssessment, getResultAssessment } from "../assessment";
 import { AssessmentBadge, AssessmentIcon } from "./AssessmentBadge";
 const stages = [
@@ -40,6 +41,8 @@ type Props = {
   hasKey: boolean;
   hideSummary?: boolean;
   onOpenSettings?: () => void;
+  apiKey?: string;
+  onReviewSaved?: (eventId: string, value: HumanReview) => void;
 };
 export function ResultPanel({
   job,
@@ -56,6 +59,8 @@ export function ResultPanel({
   hasKey,
   hideSummary = false,
   onOpenSettings,
+  apiKey = "",
+  onReviewSaved,
 }: Props) {
   const busy = ["uploading", "restoring", "processing"].includes(phase);
   const result = getResultAssessment(phase === "done" && !issue ? job : null);
@@ -289,6 +294,14 @@ export function ResultPanel({
                     <span className="event-list-copy">
                       <strong>{item.type}</strong>
                       <AssessmentBadge {...getEventAssessment(item)} />
+                      <span className="human-status">
+                        Человек:{" "}
+                        {
+                          decisionLabels[
+                            item.human_review?.decision ?? "unreviewed"
+                          ]
+                        }
+                      </span>
                     </span>
                     <time>{timecode(item.timecode_sec)}</time>
                     <ChevronRight size={16} />
@@ -313,6 +326,16 @@ export function ResultPanel({
                       </p>
                     )}
                   </div>
+                  {onReviewSaved && (
+                    <EventReview
+                      key={`${job.job_id}:${event.event_id ?? activeEvent}`}
+                      event={event}
+                      jobId={job.job_id}
+                      apiKey={apiKey}
+                      onSaved={onReviewSaved}
+                      onOpenSettings={onOpenSettings}
+                    />
+                  )}
                   <div className="evidence-heading">
                     <h4>Кадры-доказательства</h4>
                     <button
@@ -433,6 +456,15 @@ export function ResultPanel({
                 ))}
               </dl>
             </details>
+          )}
+          {job.video_expires_at && (
+            <p className="retention-note">
+              {job.video_available
+                ? "Видео хранится до"
+                : "Видео недоступно; срок хранения до"}{" "}
+              {new Date(job.video_expires_at).toLocaleString("ru-RU")}. Срок
+              хранения результата указан отдельно.
+            </p>
           )}
           {job.expires_at && (
             <p className="retention-note">

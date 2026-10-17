@@ -61,6 +61,9 @@ async def _request_json(client: httpx.AsyncClient, url: str, stage: str, **kwarg
         async with asyncio.timeout(ML_REQUEST_TIMEOUT_SECONDS):
             async with client.stream("POST", url, **kwargs) as response:
                 response.raise_for_status()
+                if (response.headers.get("x-analysis-status", "").lower() in {"partial", "incomplete"}
+                    or response.headers.get("x-analysis-complete", "").lower() in {"false", "0", "no"}):
+                    raise PipelineError(f"{stage.upper()}_INCOMPLETE", f"{stage.upper()} сообщил о неполном анализе. Результат не определён.")
                 content_length = response.headers.get("content-length")
                 if content_length and int(content_length) > MAX_ML_RESPONSE_BYTES:
                     raise PipelineError(f"{stage.upper()}_INVALID_RESPONSE", f"{stage.upper()} вернул слишком большой ответ.")

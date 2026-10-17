@@ -2373,3 +2373,346 @@ footer > span:first-child {
     scroll-behavior: auto !important;
   }
 }
+
+/* History and review reuse the console's existing controls and surfaces. */
+textarea,
+select {
+  font: inherit;
+  color: var(--ink);
+}
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+.history-filters,
+.analytics-types,
+.human-review {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.history-filters {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.history-filters label,
+.human-review label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 0;
+}
+.history-filters input,
+.history-filters select,
+.human-review select,
+.human-review textarea {
+  min-height: 40px;
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 9px 11px;
+  background: white;
+  font-size: 16px;
+  font-weight: 400;
+}
+.history-search {
+  flex: 1;
+  min-width: 180px !important;
+}
+.history-filters input::placeholder {
+  color: var(--muted);
+}
+.filter-error {
+  flex-basis: 100%;
+  color: #9f1239;
+  font-size: 13px;
+}
+.filter-summary,
+.review-note {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.8;
+}
+.filter-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.loading-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #475569;
+  padding: 24px 0;
+}
+.history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+.history-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(270px, 1fr) auto;
+  gap: 22px;
+  align-items: center;
+  padding: 20px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.history-file {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.history-file h2 {
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.history-file time,
+.history-file small {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.history-status {
+  font-size: 12px;
+  font-weight: 650;
+  color: #475569;
+}
+.history-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+.history-counts dt {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #475569;
+}
+.history-counts dd {
+  font-size: 21px;
+  font-weight: 700;
+  margin: 5px 0 0;
+  font-variant-numeric: tabular-nums;
+}
+.history-actions {
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+  gap: 10px;
+}
+.delete-confirmation {
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.delete-confirmation .settings-actions {
+  margin-top: 12px;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 15px;
+  font-size: 13px;
+}
+.analytics-group h2,
+.analytics-types h2 {
+  font-size: 17px;
+  margin-bottom: 12px;
+}
+.analytics-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+}
+.analytics-metrics > div {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: white;
+}
+.analytics-metrics dt {
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.analytics-metrics dd {
+  margin: 10px 0 0;
+  font-size: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.analytics-types ol {
+  padding: 0;
+  margin: 18px 0 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+.analytics-types button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.analytics-types button:hover {
+  background: #f8fafc;
+}
+.type-bar-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.type-bar-title > span {
+  color: #475569;
+}
+.type-bar-track {
+  display: block;
+  margin: 10px 0;
+  height: 10px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  overflow: hidden;
+}
+.type-bar-track > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.type-link {
+  color: var(--accent-hover);
+  font-size: 12px;
+  font-weight: 650;
+}
+.analytics-empty {
+  font-size: 14px;
+  line-height: 1.8;
+  margin-top: 24px;
+}
+.human-status {
+  display: block;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #475569;
+  font-weight: 400;
+}
+.human-review {
+  margin: 18px 0;
+  padding: 16px;
+}
+.human-review > * + * {
+  margin-top: 12px;
+}
+.human-review h4 {
+  font-size: 14px;
+}
+.human-review label > span {
+  font-weight: 400;
+}
+.human-review textarea {
+  resize: vertical;
+  min-height: 85px;
+}
+.human-review small {
+  display: block;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.human-review a {
+  display: block;
+  font-size: 13px;
+}
+.human-review .review-note:empty {
+  display: none;
+}
+@media (max-width: 1024px) {
+  .history-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .history-counts {
+    grid-column: 1;
+  }
+  .history-actions {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+}
+@media (max-width: 760px) {
+  .history-filters {
+    padding: 17px;
+    gap: 12px;
+  }
+  .history-filters label {
+    flex: 1 1 100%;
+  }
+  .history-filters > .button {
+    flex: 1;
+  }
+  .history-item {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 17px;
+    gap: 17px;
+  }
+  .history-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .history-actions .button {
+    flex: 1;
+  }
+  .analytics-metrics {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .analytics-metrics > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 17px;
+  }
+  .analytics-metrics dd {
+    margin: 0;
+    font-size: 26px;
+  }
+  .analytics-types {
+    padding: 17px;
+  }
+  .pagination {
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+}

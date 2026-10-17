@@ -21,69 +21,41 @@
       "title": "EvidenceFrame",
       "type": "object"
     },
-    "Rule": {
+    "HumanReview": {
       "properties": {
-        "id": {
-          "maxLength": 200,
-          "minLength": 1,
-          "title": "Id",
+        "decision": {
+          "default": "unreviewed",
+          "enum": [
+            "unreviewed",
+            "confirmed",
+            "rejected"
+          ],
+          "title": "Decision",
           "type": "string"
         },
-        "title": {
-          "maxLength": 8000,
-          "minLength": 1,
-          "title": "Title",
+        "comment": {
+          "default": "",
+          "maxLength": 4000,
+          "title": "Comment",
           "type": "string"
         },
-        "visual_signs": {
-          "items": {
-            "maxLength": 8000,
-            "minLength": 1,
-            "type": "string"
-          },
-          "maxItems": 100,
-          "minItems": 1,
-          "title": "Visual Signs",
-          "type": "array"
-        },
-        "document": {
-          "maxLength": 8000,
-          "minLength": 1,
-          "title": "Document",
-          "type": "string"
-        },
-        "section": {
-          "maxLength": 8000,
-          "minLength": 1,
-          "title": "Section",
-          "type": "string"
-        },
-        "url": {
-          "format": "uri",
-          "maxLength": 2048,
-          "minLength": 1,
-          "pattern": "^https?://",
-          "title": "Url",
-          "type": "string"
-        },
-        "is_demo": {
-          "default": false,
-          "title": "Is Demo",
-          "type": "boolean"
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
         }
       },
-      "required": [
-        "id",
-        "title",
-        "visual_signs",
-        "document",
-        "section",
-        "url"
-      ],
-      "title": "Rule",
+      "title": "HumanReview",
       "type": "object"
     },
-    "Violation": {
+    "ReviewedEvent": {
       "allOf": [
         {
           "if": {
@@ -193,6 +165,45 @@
           "default": null,
           "description": "ML2 explanation of the assessment. Required for strong_evidence; never a confidence percentage.",
           "title": "Assessment Reason"
+        },
+        "event_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Id"
+        },
+        "category_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category Id"
+        },
+        "human_review": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HumanReview"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -201,7 +212,69 @@
         "description",
         "evidence_frames"
       ],
-      "title": "Violation",
+      "title": "ReviewedEvent",
+      "type": "object"
+    },
+    "Rule": {
+      "properties": {
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "visual_signs": {
+          "items": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Visual Signs",
+          "type": "array"
+        },
+        "document": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Document",
+          "type": "string"
+        },
+        "section": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Section",
+          "type": "string"
+        },
+        "url": {
+          "format": "uri",
+          "maxLength": 2048,
+          "minLength": 1,
+          "pattern": "^https?://",
+          "title": "Url",
+          "type": "string"
+        },
+        "is_demo": {
+          "default": false,
+          "title": "Is Demo",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "visual_signs",
+        "document",
+        "section",
+        "url"
+      ],
+      "title": "Rule",
       "type": "object"
     }
   },
@@ -304,7 +377,7 @@
     },
     "violations": {
       "items": {
-        "$ref": "#/$defs/Violation"
+        "$ref": "#/$defs/ReviewedEvent"
       },
       "title": "Violations",
       "type": "array"
@@ -388,6 +461,52 @@
       ],
       "default": null,
       "title": "Completed At"
+    },
+    "video_available": {
+      "default": false,
+      "title": "Video Available",
+      "type": "boolean"
+    },
+    "video_expires_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Video Expires At"
+    },
+    "video_size_bytes": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Video Size Bytes"
+    },
+    "video_unavailable_reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "expired",
+            "missing",
+            "not_retained"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Video Unavailable Reason"
     }
   },
   "required": [

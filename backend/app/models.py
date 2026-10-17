@@ -113,6 +113,18 @@ class MatchingRequest(Observations):
     rules: list[Rule] = Field(min_length=1, max_length=5_000)
 
 
+class HumanReview(BaseModel):
+    decision: Literal["unreviewed", "confirmed", "rejected"] = "unreviewed"
+    comment: str = Field(default="", max_length=4_000)
+    updated_at: str | None = None
+
+
+class ReviewUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["unreviewed", "confirmed", "rejected"]
+    comment: str = Field(default="", max_length=4_000)
+
+
 class Violation(BaseModel):
     model_config = ConfigDict(json_schema_extra={"allOf": [{
         "if": {"properties": {"assessment": {"const": "strong_evidence"}}, "required": ["assessment"]},
@@ -137,6 +149,12 @@ class Violation(BaseModel):
         if self.assessment == "strong_evidence" and self.assessment_reason is None:
             raise ValueError("strong_evidence requires assessment_reason")
         return self
+
+
+class ReviewedEvent(Violation):
+    event_id: Identifier | None = None
+    category_id: Identifier | None = None
+    human_review: HumanReview | None = None
 
 
 class AnalysisResult(BaseModel):
@@ -164,7 +182,7 @@ class JobResponse(BaseModel):
     )
     size_bytes: int | None = Field(default=None, ge=0)
     verdict: Literal["violation", "no_violation"] | None = None
-    violations: list[Violation] = Field(default_factory=list)
+    violations: list[ReviewedEvent] = Field(default_factory=list)
     error: str | None = None
     error_code: str | None = None
     timings_sec: dict[str, Seconds] = Field(default_factory=dict)
@@ -172,6 +190,10 @@ class JobResponse(BaseModel):
     deadline_at: str | None = None
     demo_scenario: str | None = None
     completed_at: str | None = None
+    video_available: bool = False
+    video_expires_at: str | None = None
+    video_size_bytes: int | None = None
+    video_unavailable_reason: Literal["expired", "missing", "not_retained"] | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -204,3 +226,43 @@ class JobResponse(BaseModel):
         elif self.status == "processing" and self.stage in {"done", "failed"}:
             raise ValueError("Processing jobs require an active stage")
         return self
+
+
+class HistoryItem(BaseModel):
+    job_id: str
+    filename: str
+    created_at: str
+    completed_at: str | None
+    expires_at: str
+    status: Literal["processing", "done", "failed"]
+    mode: Literal["demo", "live"]
+    red_count: int
+    yellow_count: int
+    unreviewed_count: int
+    video_available: bool
+    video_expires_at: str | None
+
+
+class HistoryPage(BaseModel):
+    items: list[HistoryItem]
+    total: int
+    page: int
+    page_size: int
+
+
+class EventTypeCount(BaseModel):
+    category_id: str
+    type: str
+    detected: int
+    confirmed: int
+
+
+class AnalyticsResponse(BaseModel):
+    successful_videos: int
+    videos_with_events: int
+    detected_events: int
+    confirmed_events: int
+    rejected_events: int
+    unreviewed_events: int
+    top_types: list[EventTypeCount]
+    date_basis: Literal["created_at"] = "created_at"

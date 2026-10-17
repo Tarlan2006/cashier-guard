@@ -11,14 +11,14 @@ from pathlib import Path
 from uuid import uuid4
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile, Query
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import media, pipeline
 from .config import ROOT, Settings
 from .middleware import UploadBudgetMiddleware
-from .models import JobResponse
+from .models import JobResponse, HistoryPage, HumanReview, ReviewUpdate, AnalyticsResponse, ReviewedEvent
 from .readiness import inspect_readiness
 from .store import JobStore
 
@@ -60,7 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     store: JobStore | None = None
 
     def storage_bytes() -> int:
-        return sum(path.stat().st_size for path in config.storage.iterdir() if path.is_file())
+        return sum(path.stat().st_size for path in config.storage.rglob("*") if path.is_file() and not path.is_symlink())
 
     def reserved_bytes() -> int:
         return sum(max(0, limit - (path.stat().st_size if path.exists() else 0))
@@ -103,9 +103,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except Exception:
             pass
 
-    def try_save_terminal(job: JobResponse) -> bool:
+    def try_save_terminal(job: JobResponse, video=None) -> bool:
         try:
-            store.save(job)
+            if video is None:
+                store.save(job)
+            else:
+                store.save(job, video=video)
             return True
         except Exception as error:
             rollback_after_write_error()
@@ -132,7 +135,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if try_save_terminal(job):
                 unsaved_failures.pop(job_id, None)
         try:
-            store.delete_expired(time.time())
+            for path in [*store.delete_expired(time.time()), *store.expire_videos(time.time())]:
+                delete_source(path)
         except Exception as error:
             rollback_after_write_error()
             logger.error("Result expiry cleanup failed kind=%s", type(error).__name__)
@@ -163,7 +167,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if 3 * len(result.model_dump_json().encode()) > available_bytes():
                 code, error = "STORAGE_FULL", "На сервере закончилось место для результата. Повторите позже или обратитесь к администратору."
             else:
-                job.verdict, job.violations = result.verdict, result.violations
+                job.verdict, job.violations = result.verdict, [ReviewedEvent(**event.model_dump()) for event in result.violations]
         if code:
             # A failure can never be mistaken for a clean video.
             job.verdict, job.violations = None, []
@@ -176,8 +180,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         completed = time.time()
         job.completed_at = iso(completed)
         job.expires_at = iso(completed + config.retention_hours * 3600)
+        video = None
+        archive = config.storage / "videos" / f"{job.job_id}.mp4"
+        if job.status == "done":
+            try:
+                record.normalized_path.replace(archive)
+                video = dict(filename=archive.name, size_bytes=archive.stat().st_size,
+                             expires_at=completed + config.video_retention_hours * 3600)
+            except OSError:
+                job.status = job.stage = "failed"
+                job.verdict, job.violations = None, []
+                job.error_code, job.error = "STORAGE_WRITE_FAILED", "Не удалось сохранить видеоархив. Проверьте хранилище сервера."
         try:
-            if not try_save_terminal(job):
+            if not try_save_terminal(job, video):
                 job.status = job.stage = "failed"
                 job.verdict, job.violations = None, []
                 job.error_code = "STORAGE_WRITE_FAILED"
@@ -186,6 +201,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     unsaved_failures[job.job_id] = job
             record.job = job
         finally:
+            if job.status != "done":
+                delete_source(archive)
             delete_inputs(record)
             active.pop(job.job_id, None)
             if record.timer and record.timer is not asyncio.current_task():
@@ -284,7 +301,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         nonlocal store
         config.validate()
         config.storage.mkdir(parents=True, exist_ok=True)
-        store = JobStore(config.storage / "jobs.sqlite3")
+        (config.storage / "videos").mkdir(exist_ok=True)
+        store = JobStore(config.storage / "jobs.sqlite3", retention_hours=config.retention_hours)
         app.state.store = store
         app.state.cleanup = cleanup
         app.state.active = active
@@ -304,6 +322,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             store.save(job)
         for path in [*config.storage.glob("*.upload"), *config.storage.glob("*.normalized.mp4")]:
             delete_source(path)
+        known = store.retained_video_names()
+        for path in (config.storage / "videos").glob("*.mp4"):
+            if path.name not in known: delete_source(path)
         cleanup()
         workers = [asyncio.create_task(worker()) for _ in range(config.workers)]
         janitor = asyncio.create_task(cleanup_loop())
@@ -322,7 +343,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 delete_source(path)
             store.close()
 
-    app = FastAPI(title="Cashier Guard API", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="Cashier Guard API", version="0.3.0", lifespan=lifespan)
     app.add_middleware(UploadBudgetMiddleware, settings=config,
                        reserve_upload=reserve_upload, release_upload=release_upload)
 
@@ -330,7 +351,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def request_error(request: Request, error: HTTPException):
         code = {400: "INVALID_UPLOAD", 401: "UNAUTHORIZED", 404: "JOB_NOT_FOUND",
                 408: "TIMEOUT", 413: "UPLOAD_TOO_LARGE", 415: "UNSUPPORTED_FILE_TYPE",
-                422: "INVALID_REQUEST", 503: "SERVICE_BUSY"}.get(error.status_code, "REQUEST_FAILED")
+                409: "JOB_ACTIVE", 410: "VIDEO_EXPIRED", 422: "INVALID_REQUEST", 503: "SERVICE_BUSY"}.get(error.status_code, "REQUEST_FAILED")
         return JSONResponse({"detail": error.detail, "error_code": code}, error.status_code, headers=error.headers)
 
     async def authorize(x_api_key: Annotated[str | None, Header()] = None):
@@ -339,7 +360,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/v1/health")
     async def health():
-        return {"status": "ok", "mode": config.mode, "max_upload_mb": config.max_upload_mb, "job_timeout_seconds": config.timeout, "upload_timeout_seconds": min(config.upload_timeout, config.timeout), "result_ttl_hours": config.retention_hours}
+        return {"status": "ok", "mode": config.mode, "max_upload_mb": config.max_upload_mb, "job_timeout_seconds": config.timeout, "upload_timeout_seconds": min(config.upload_timeout, config.timeout), "result_ttl_hours": config.retention_hours, "video_ttl_hours": config.video_retention_hours, "max_storage_mb": config.max_storage_mb}
 
     @app.get("/api/v1/ready")
     async def ready():
@@ -416,12 +437,68 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             await file.close()
         return {"job_id": job_id, "status": "processing", "mode": config.mode, "deadline_at": job.deadline_at, "expires_at": job.expires_at}
 
+    def period(date_from, date_to):
+        for value in (date_from, date_to):
+            if value is not None and value.utcoffset() is None:
+                raise HTTPException(422, "Укажите часовой пояс в датах периода.")
+        if date_from and date_to and date_from >= date_to:
+            raise HTTPException(422, "Начало периода должно быть раньше окончания.")
+        return dict(date_from=date_from.timestamp() if date_from else None,
+                    date_to=date_to.timestamp() if date_to else None)
+
+    @app.get("/api/v1/jobs", response_model=HistoryPage, dependencies=[Depends(authorize)])
+    async def history(page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
+                      search: str = Query("", max_length=255), status: str | None = None,
+                      date_from: datetime | None = None, date_to: datetime | None = None,
+                      category_id: str | None = Query(None, max_length=200), mode: str | None = None):
+        if status not in (None, "processing", "done", "failed") or mode not in (None, "live", "demo"):
+            raise HTTPException(422, "Неизвестный статус или режим.")
+        filters = period(date_from,date_to)
+        cleanup()
+        return store.history(page,page_size,search=search,status=status,category_id=category_id,mode=mode,**filters)
+
+    @app.get("/api/v1/analytics", response_model=AnalyticsResponse, dependencies=[Depends(authorize)])
+    async def analytics(date_from: datetime | None = None, date_to: datetime | None = None):
+        filters = period(date_from,date_to)
+        cleanup()
+        return store.analytics(**filters)
+
     @app.get("/api/v1/jobs/{job_id}", response_model=JobResponse, dependencies=[Depends(authorize)])
     async def get_job(job_id: str):
         job = unsaved_failures.get(job_id) or store.get(job_id)
         if job is None or (job.status != "processing" and datetime.fromisoformat(job.expires_at).timestamp() <= time.time()):
             raise HTTPException(404, "Проверка не найдена или срок хранения истёк. Загрузите видео заново.")
         return job
+
+    @app.delete("/api/v1/jobs/{job_id}", dependencies=[Depends(authorize)])
+    async def delete_job(job_id: str):
+        job = await get_job(job_id)
+        if job.status == "processing" or job_id in active:
+            raise HTTPException(409, "Дождитесь завершения обработки, затем удалите проверку.")
+        path = store.delete(job_id)
+        if path: delete_source(path)
+        unsaved_failures.pop(job_id,None)
+        return {"deleted": True, "job_id": job_id}
+
+    @app.patch("/api/v1/jobs/{job_id}/events/{event_id}/review", response_model=HumanReview, dependencies=[Depends(authorize)])
+    async def review_event(job_id: str, event_id: str, update: ReviewUpdate):
+        job = await get_job(job_id)
+        if job.status != "done":
+            raise HTTPException(409, "Решения доступны только для завершённой проверки.")
+        if 3 * len(update.comment.encode()) + 16_384 > available_bytes():
+            raise HTTPException(503,"Недостаточно места для сохранения решения. Освободите хранилище.")
+        result = store.update_review(job_id,event_id,update)
+        if result is None: raise HTTPException(404,"Событие не найдено в этой проверке.")
+        return result
+
+    @app.get("/api/v1/jobs/{job_id}/video", dependencies=[Depends(authorize)])
+    async def video(job_id: str):
+        job = await get_job(job_id)
+        path = store.video_path(job_id)
+        if not path:
+            raise HTTPException(410,"Видеозапись недоступна: срок её хранения истёк или файл не был сохранён. Результат и кадры доступны отдельно.")
+        return FileResponse(path, media_type="video/mp4", filename=Path(job.filename).stem + ".mp4",
+                            content_disposition_type="inline", headers={"Cache-Control":"private, no-store"})
 
     dist = ROOT / "frontend" / "dist"
     if (dist / "assets").is_dir():

@@ -8,7 +8,15 @@ export type Rule = {
   url: string;
   is_demo?: boolean;
 };
+export type HumanReview = {
+  decision: "unreviewed" | "confirmed" | "rejected";
+  comment: string;
+  updated_at: string | null;
+};
 export type Violation = {
+  event_id?: string | null;
+  category_id?: string | null;
+  human_review?: HumanReview | null;
   type: string;
   timecode_sec: number;
   description: string;
@@ -26,6 +34,10 @@ export type Job = {
   filename: string;
   duration_sec: number | null;
   source_time_offset_sec?: number | null;
+  video_available?: boolean;
+  video_expires_at?: string | null;
+  video_size_bytes?: number | null;
+  video_unavailable_reason?: "expired" | "missing" | "not_retained" | null;
   verdict: "violation" | "no_violation" | null;
   violations: Violation[];
   error: string | null;
@@ -68,6 +80,7 @@ export class ApiError extends Error {
 }
 export type RequestOptions = RequestInit & {
   timeoutMs?: number;
+  responseType?: "json" | "blob";
   retries?: number;
   retryDelayMs?: number;
 };
@@ -96,6 +109,7 @@ export async function request<T>(
   options: RequestOptions = {},
 ): Promise<T> {
   const {
+    responseType = "json",
     timeoutMs = 8_000,
     retries = 0,
     retryDelayMs = 500,
@@ -126,7 +140,7 @@ export async function request<T>(
       if (!response.ok) {
         const kind: ErrorKind = [401, 403].includes(response.status)
           ? "auth"
-          : response.status === 404
+          : [404, 410].includes(response.status)
             ? "not_found"
             : [408, 504].includes(response.status)
               ? "timeout"
@@ -154,7 +168,11 @@ export async function request<T>(
         throw new ApiError(kind, message, response.status);
       }
       try {
-        return (await response.json()) as T;
+        return (
+          responseType === "blob"
+            ? await response.blob()
+            : await response.json()
+        ) as T;
       } catch (error) {
         if (controller.signal.aborted) throw error;
         throw new ApiError(
@@ -336,3 +354,39 @@ export function scrollBehavior(): ScrollBehavior {
     ? "auto"
     : "smooth";
 }
+
+export type HistoryItem = {
+  job_id: string;
+  filename: string;
+  created_at: string;
+  completed_at: string | null;
+  expires_at: string;
+  status: Job["status"];
+  mode: Job["mode"];
+  red_count: number;
+  yellow_count: number;
+  unreviewed_count: number;
+  video_available: boolean;
+  video_expires_at: string | null;
+};
+export type HistoryPage = {
+  items: HistoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+export type Analytics = {
+  successful_videos: number;
+  videos_with_events: number;
+  detected_events: number;
+  confirmed_events: number;
+  rejected_events: number;
+  unreviewed_events: number;
+  top_types: {
+    category_id: string;
+    type: string;
+    detected: number;
+    confirmed: number;
+  }[];
+  date_basis: "created_at";
+};

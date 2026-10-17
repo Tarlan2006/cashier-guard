@@ -61,7 +61,7 @@ async function noOverflow(page: Page) {
   ).toBe(true);
 }
 
-test("refresh restores the current slow job and requires explicit local-file reattachment", async ({
+test("refresh restores the slow job and opens archived playback without a new analysis", async ({
   page,
 }) => {
   await open(page);
@@ -80,10 +80,6 @@ test("refresh restores the current slow job and requires explicit local-file rea
   page.on("request", (request) => {
     if (request.method() === "POST") posts.push(request.url());
   });
-  await page
-    .getByRole("button", { name: "Выбрать файл для просмотра" })
-    .click();
-  await page.getByLabel("Видео для проверки").setInputFiles(VIDEO);
   await expect(page.locator("video")).toBeVisible();
   expect(posts).toEqual([]);
   expect(await uploads()).toEqual([]);

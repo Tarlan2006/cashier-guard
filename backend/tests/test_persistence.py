@@ -300,7 +300,7 @@ def test_partial_multipart_disk_refusal_closes_spool_and_releases_reservation(tm
 
 def test_simultaneous_parsers_share_physical_disk_reservations(tmp_path, monkeypatch):
     fake_pipeline(monkeypatch)
-    monkeypatch.setattr(main.shutil, "disk_usage", lambda path: SimpleNamespace(free=400 * 1024))
+    monkeypatch.setattr(main.shutil, "disk_usage", lambda path: SimpleNamespace(free=512 * 1024))
     head = b'--test\r\nContent-Disposition: form-data; name="file"; filename="clip.mov"\r\n\r\n'
     tail = b"\r\n--test--\r\n"
     config = config_for(tmp_path, max_upload_mb=1, max_concurrent_uploads=2)
@@ -357,7 +357,7 @@ class TerminalCommitFault:
 
     def execute(self, statement, parameters=()):
         result = self.connection.execute(statement, parameters)
-        if statement.startswith("INSERT OR REPLACE") and parameters[1] != "processing":
+        if statement.startswith("INSERT INTO jobs") and parameters[1] != "processing":
             self.fail_commit = self.enabled and (self.permanent or self.failures == 0)
         return result
 

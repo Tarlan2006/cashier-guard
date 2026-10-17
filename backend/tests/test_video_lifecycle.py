@@ -142,7 +142,9 @@ def test_normalization_reservation_blocks_upload_without_double_counting_output(
         release.set()
         assert wait(client, first)["status"] == "done"
         assert wait(client, second)["status"] == "done"
-        assert limits == [1024 * 1024, 1024 * 1024]
+        assert limits[0] == 1024 * 1024
+        # The first completed MP4 is now retained, so it consumes archive quota.
+        assert 512 * 1024 <= limits[1] < 1024 * 1024
         assert not client.app.state.normalization_reservations
         no_inputs(config)
 

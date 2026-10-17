@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, parseJob, request } from "../api";
-import type { Job } from "../api";
+import type { Job, HumanReview } from "../api";
 export const ACTIVE_JOB_KEY = "cashier-guard-current-job";
 export const API_KEY_STORAGE = "cashier-guard-key";
 type SavedJob = { job_id: string; submitted_at: number };
@@ -220,7 +220,38 @@ export function useReview(key: string) {
       setResumeVersion((value) => value + 1);
     }
   }, [saved]);
+  const open = useCallback((jobId: string) => {
+    generation.current++;
+    controller.current?.abort();
+    sending.current = false;
+    const next = { job_id: jobId, submitted_at: Date.now() };
+    setJob(null);
+    setIssue(null);
+    setSaved(next);
+    save(next);
+    setPhase("restoring");
+    setResumeVersion((value) => value + 1);
+  }, []);
+  const applyHumanReview = useCallback(
+    (jobId: string, eventId: string, humanReview: HumanReview) => {
+      setJob((current) =>
+        current?.job_id === jobId
+          ? {
+              ...current,
+              violations: current.violations.map((event) =>
+                event.event_id === eventId
+                  ? { ...event, human_review: humanReview }
+                  : event,
+              ),
+            }
+          : current,
+      );
+    },
+    [],
+  );
   return {
+    open,
+    applyHumanReview,
     job,
     phase,
     issue,

@@ -14,7 +14,13 @@ import {
 import type { Job, Rule } from "../api";
 
 export type WorkspaceTab =
-  "workspace" | "regulations" | "api" | "architecture" | "settings";
+  | "workspace"
+  | "regulations"
+  | "api"
+  | "architecture"
+  | "settings"
+  | "history"
+  | "analytics";
 
 function verifiedRule(rule: Rule | null): rule is Rule {
   if (
@@ -41,7 +47,10 @@ export function WorkspaceSections({
   tab,
   job,
 }: {
-  tab: Exclude<WorkspaceTab, "workspace" | "settings">;
+  tab: Exclude<
+    WorkspaceTab,
+    "workspace" | "settings" | "history" | "analytics"
+  >;
   job: Job | null;
 }) {
   const [copyStatus, setCopyStatus] = useState("");
@@ -125,6 +134,28 @@ export function WorkspaceSections({
             <div className="endpoint">
               <span>GET</span>
               <code>/api/v1/jobs/{"{job_id}"}</code>
+            </div>
+            <div className="endpoint">
+              <span>GET</span>
+              <code>/api/v1/jobs</code>
+            </div>
+            <div className="endpoint">
+              <span>DELETE</span>
+              <code>/api/v1/jobs/{"{job_id}"}</code>
+            </div>
+            <div className="endpoint">
+              <span>GET</span>
+              <code>/api/v1/jobs/{"{job_id}"}/video</code>
+            </div>
+            <div className="endpoint">
+              <span>PATCH</span>
+              <code>
+                /api/v1/jobs/{"{job_id}"}/events/{"{event_id}"}/review
+              </code>
+            </div>
+            <div className="endpoint">
+              <span>GET</span>
+              <code>/api/v1/analytics</code>
             </div>
             <p>
               Авторизация — заголовок <code>X-API-Key</code>. Ключ доступа не

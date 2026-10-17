@@ -1,0 +1,124 @@
+{
+  "$defs": {
+    "HistoryItem": {
+      "properties": {
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "filename": {
+          "title": "Filename",
+          "type": "string"
+        },
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "completed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Completed At"
+        },
+        "expires_at": {
+          "title": "Expires At",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "processing",
+            "done",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "demo",
+            "live"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "red_count": {
+          "title": "Red Count",
+          "type": "integer"
+        },
+        "yellow_count": {
+          "title": "Yellow Count",
+          "type": "integer"
+        },
+        "unreviewed_count": {
+          "title": "Unreviewed Count",
+          "type": "integer"
+        },
+        "video_available": {
+          "title": "Video Available",
+          "type": "boolean"
+        },
+        "video_expires_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Video Expires At"
+        }
+      },
+      "required": [
+        "job_id",
+        "filename",
+        "created_at",
+        "completed_at",
+        "expires_at",
+        "status",
+        "mode",
+        "red_count",
+        "yellow_count",
+        "unreviewed_count",
+        "video_available",
+        "video_expires_at"
+      ],
+      "title": "HistoryItem",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "items": {
+      "items": {
+        "$ref": "#/$defs/HistoryItem"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "total": {
+      "title": "Total",
+      "type": "integer"
+    },
+    "page": {
+      "title": "Page",
+      "type": "integer"
+    },
+    "page_size": {
+      "title": "Page Size",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "items",
+    "total",
+    "page",
+    "page_size"
+  ],
+  "title": "HistoryPage",
+  "type": "object"
+}

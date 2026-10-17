@@ -23,7 +23,8 @@ class Settings:
     workers: int = field(default_factory=lambda: int(os.getenv("WORKERS", "2")))
     queue_size: int = field(default_factory=lambda: int(os.getenv("QUEUE_SIZE", "16")))
     max_jobs: int = field(default_factory=lambda: int(os.getenv("MAX_STORED_JOBS", "128")))
-    retention_hours: float = field(default_factory=lambda: float(os.getenv("RESULT_TTL_HOURS", "1")))
+    retention_hours: float = field(default_factory=lambda: float(os.getenv("HISTORY_TTL_HOURS", "720")))
+    video_retention_hours: float = field(default_factory=lambda: float(os.getenv("VIDEO_TTL_HOURS", "168")))
     cleanup_interval: float = field(default_factory=lambda: float(os.getenv("CLEANUP_INTERVAL_SECONDS", "60")))
     max_storage_mb: int = field(default_factory=lambda: int(os.getenv("MAX_STORAGE_MB", "2048")))
     max_concurrent_uploads: int = field(default_factory=lambda: int(os.getenv("MAX_CONCURRENT_UPLOADS", "2")))
@@ -38,7 +39,7 @@ class Settings:
         if not 0 < self.timeout <= 295 or self.max_upload_mb <= 0:
             raise RuntimeError("Invalid upload limit or job timeout (must be <= 295 seconds)")
         limits = (self.upload_timeout, self.workers, self.queue_size, self.max_jobs,
-                  self.retention_hours, self.cleanup_interval, self.max_storage_mb,
+                  self.retention_hours, self.video_retention_hours, self.cleanup_interval, self.max_storage_mb,
                   self.max_concurrent_uploads, self.normalization_workers, self.max_normalized_mb)
         if any(not math.isfinite(value) or value <= 0 for value in limits):
             raise RuntimeError("Storage, concurrency, retention and upload settings must be positive")

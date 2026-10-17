@@ -271,3 +271,19 @@ def test_synthetic_video_produces_three_decodable_evidence_frames(tmp_path, monk
         with Image.open(BytesIO(base64.b64decode(frame.image_base64))) as image:
             image.load()
             assert image.format == "JPEG" and image.size == (96, 64)
+
+@pytest.mark.parametrize('headers', [
+    {'X-Analysis-Status':'partial'}, {'X-Analysis-Status':'incomplete'},
+    {'X-Analysis-Complete':'false'}, {'X-Analysis-Complete':'0'},
+])
+def test_incomplete_analysis_never_becomes_empty_success(tmp_path,monkeypatch,headers):
+    video, settings = live_settings(tmp_path)
+    seen=[]
+    def respond(request):
+        seen.append(request.url.path)
+        return httpx.Response(200,json={'schema_version':'1.0','events':[]},headers=headers)
+    install_transport(monkeypatch,respond)
+    with pytest.raises(PipelineError) as error:
+        asyncio.run(analyze(video,10,settings,'violation',lambda _:None))
+    assert error.value.code=='ML1_INCOMPLETE'
+    assert seen==['/analyze']

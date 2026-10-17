@@ -224,13 +224,9 @@ test("mixed assessments preserve row/marker colors, keyboard selection, export a
     "data-assessment",
     "strong_evidence",
   );
-  await expect(page.locator("video")).toHaveCount(0);
+  await expect(page.locator("video")).toBeVisible();
   expect((await exported(page)).violations).toEqual(job.violations);
   expect((await jobFromApi(id)).violations).toEqual(job.violations);
-  await page
-    .getByRole("button", { name: "Выбрать файл для просмотра" })
-    .click();
-  await page.getByLabel("Видео для проверки").setInputFiles(VIDEO);
   await expect(
     page.getByLabel("Отметки событий на шкале").getByRole("button"),
   ).toHaveCount(4);

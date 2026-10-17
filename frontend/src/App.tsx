@@ -7,8 +7,9 @@ import {
   Cpu,
   Terminal,
   Video,
+  History,
+  BarChart3,
   Eye,
-  FileVideo2,
   Info,
   LoaderCircle,
   RefreshCw,
@@ -20,6 +21,13 @@ import {
 import type { Frame } from "./api";
 import { readKey, useReview } from "./hooks/useReview";
 import { useServiceStatus } from "./hooks/useServiceStatus";
+import {
+  HistoryPanel,
+  AnalyticsPanel,
+  emptyFilters,
+} from "./components/HistoryAnalytics";
+import type { HistoryFilters } from "./components/HistoryAnalytics";
+import { ArchivedVideo } from "./components/ArchivedVideo";
 import { FrameDialog } from "./components/FrameDialog";
 import { ResultPanel } from "./components/ResultPanel";
 import { ReviewSummary } from "./components/ReviewSummary";
@@ -36,6 +44,8 @@ import {
 
 const sections = [
   { id: "workspace", label: "Проверка видео", icon: Video },
+  { id: "history", label: "История", icon: History },
+  { id: "analytics", label: "Аналитика", icon: BarChart3 },
   { id: "regulations", label: "Нормативы РК", icon: BookOpen },
   { id: "api", label: "API", icon: Terminal },
   { id: "architecture", label: "Архитектура", icon: Cpu },
@@ -44,6 +54,8 @@ const sections = [
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("workspace");
+  const [historyFilters, setHistoryFilters] =
+    useState<HistoryFilters>(emptyFilters);
   const [key, setKey] = useState(readKey);
   const [file, setFile] = useState<File | null>(null);
   const [canPreview, setCanPreview] = useState(false);
@@ -67,6 +79,16 @@ export default function App() {
     setActiveEvent(0);
     setFrame(null);
   }, [review.job?.job_id]);
+
+  useEffect(() => {
+    const heading = Array.from(
+      document.querySelectorAll<HTMLElement>("main h1"),
+    ).find((item) => !item.closest("[hidden]"));
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    }
+  }, [activeTab]);
 
   function reset() {
     review.reset();
@@ -308,25 +330,16 @@ export default function App() {
                     disabled={review.busy}
                   />
                 ) : review.job ? (
-                  <div className="restored-file">
-                    <FileVideo2 size={27} />
-                    <strong>{review.job.filename}</strong>
-                    <p>
-                      Проверка восстановлена. Браузер не сохраняет доступ к
-                      локальному видео после обновления страницы.
-                    </p>
-                    <button
-                      className="button secondary"
-                      onClick={() => pick(true)}
-                      disabled={review.busy}
-                    >
-                      Выбрать файл для просмотра
-                    </button>
-                    <small>
-                      Это не запустит анализ повторно. Имя и размер помогают
-                      выбрать исходную запись, но не подтверждают её содержимое.
-                    </small>
-                  </div>
+                  <ArchivedVideo
+                    ref={preview}
+                    job={review.job}
+                    apiKey={key}
+                    activeEvent={activeEvent}
+                    onSelect={setActiveEvent}
+                    onPreviewAvailabilityChange={setCanPreview}
+                    onPick={() => pick(true)}
+                    disabled={review.busy}
+                  />
                 ) : (
                   <button
                     type="button"
@@ -434,6 +447,11 @@ export default function App() {
                 onReset={reset}
                 hasKey={!!key.trim()}
                 onOpenSettings={() => setActiveTab("settings")}
+                apiKey={key}
+                onReviewSaved={(eventId, value) => {
+                  if (review.job)
+                    review.applyHumanReview(review.job.job_id, eventId, value);
+                }}
               />
             </div>
             <details className="how-it-works" ref={details}>
@@ -454,9 +472,10 @@ export default function App() {
                 <div>
                   <h3>Вернитесь к результату</h3>
                   <p>
-                    Текущая проверка восстановится после обновления вкладки. Для
-                    просмотра исходного видео нужно снова выбрать локальный
-                    файл.
+                    Проверки доступны в истории после обновления страницы.
+                    Сохранённое видео открывается без нового анализа. Результаты
+                    и ролики имеют отдельные сроки хранения, указанные в истории
+                    и карточке проверки.
                   </p>
                 </div>
                 <div>
@@ -494,9 +513,44 @@ export default function App() {
           {activeTab === "settings" && (
             <SettingsPanel savedKey={key} onSave={setKey} busy={review.busy} />
           )}
-          {activeTab !== "workspace" && activeTab !== "settings" && (
-            <WorkspaceSections tab={activeTab} job={review.job} />
+          {activeTab === "history" && (
+            <HistoryPanel
+              apiKey={key}
+              filters={historyFilters}
+              onFilters={setHistoryFilters}
+              canOpen={!review.busy}
+              onSettings={() => setActiveTab("settings")}
+              onOpen={(jobId) => {
+                setFile(null);
+                setCanPreview(false);
+                setFileError("");
+                setFrame(null);
+                setActiveEvent(0);
+                review.open(jobId);
+                setActiveTab("workspace");
+              }}
+              onDeleted={(jobId) => {
+                if (review.restoredId === jobId || review.job?.job_id === jobId)
+                  reset();
+              }}
+            />
           )}
+          {activeTab === "analytics" && (
+            <AnalyticsPanel
+              apiKey={key}
+              onSettings={() => setActiveTab("settings")}
+              onDrill={(filters) => {
+                setHistoryFilters(filters);
+                setActiveTab("history");
+              }}
+            />
+          )}
+          {activeTab !== "workspace" &&
+            activeTab !== "settings" &&
+            activeTab !== "history" &&
+            activeTab !== "analytics" && (
+              <WorkspaceSections tab={activeTab} job={review.job} />
+            )}
           <footer>
             <span>Cashier Guard</span>
             <span>Помощь в проверке · окончательное решение за человеком</span>
