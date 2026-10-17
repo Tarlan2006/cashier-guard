@@ -1,0 +1,98 @@
+{
+  "version": "v6",
+  "video_count": 40,
+  "positive_count": 21,
+  "normal_count": 19,
+  "criterion": {
+    "min_TP": 3,
+    "max_FP": 1
+  },
+  "enabled_rule_ids": [],
+  "metrics": [
+    {
+      "rule_id": "cashier_away_with_client",
+      "TP": 0,
+      "FP": 0,
+      "FN": 21,
+      "TN": 19,
+      "timestamp_mae_sec": null,
+      "enabled": false
+    },
+    {
+      "rule_id": "cashier_left_workplace",
+      "TP": 12,
+      "FP": 8,
+      "FN": 9,
+      "TN": 11,
+      "timestamp_mae_sec": 3.5416666666666674,
+      "enabled": false
+    },
+    {
+      "rule_id": "cashier_returned_workplace",
+      "TP": 0,
+      "FP": 0,
+      "FN": 21,
+      "TN": 19,
+      "timestamp_mae_sec": null,
+      "enabled": false
+    },
+    {
+      "rule_id": "three_people_at_table",
+      "TP": 2,
+      "FP": 1,
+      "FN": 19,
+      "TN": 18,
+      "timestamp_mae_sec": 9.0,
+      "enabled": false
+    },
+    {
+      "rule_id": "two_clients_three_seconds",
+      "TP": 2,
+      "FP": 1,
+      "FN": 19,
+      "TN": 18,
+      "timestamp_mae_sec": 9.0,
+      "enabled": false
+    },
+    {
+      "rule_id": "items_after_cashier_left",
+      "TP": 0,
+      "FP": 0,
+      "FN": 21,
+      "TN": 19,
+      "timestamp_mae_sec": null,
+      "enabled": false,
+      "source": "v5 zero-shot reference; replaced and disabled"
+    },
+    {
+      "rule_id": "previous_items_with_new_client",
+      "TP": 0,
+      "FP": 0,
+      "FN": 21,
+      "TN": 19,
+      "timestamp_mae_sec": null,
+      "enabled": false,
+      "source": "v5 zero-shot reference; replaced and disabled"
+    },
+    {
+      "rule_id": "safe_open_while_working",
+      "TP": 0,
+      "FP": 0,
+      "FN": 21,
+      "TN": 19,
+      "timestamp_mae_sec": null,
+      "enabled": false,
+      "source": "v5 zero-shot reference; replaced and disabled"
+    },
+    {
+      "rule_id": "unlocked_laptop_after_cashier_left",
+      "TP": 0,
+      "FP": 2,
+      "FN": 21,
+      "TN": 17,
+      "timestamp_mae_sec": null,
+      "enabled": false,
+      "source": "v5 zero-shot reference; replaced and disabled"
+    }
+  ]
+}

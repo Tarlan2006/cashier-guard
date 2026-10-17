@@ -1,0 +1,93 @@
+{
+  "version": "v6",
+  "models": [
+    {
+      "name": "PekingU/rtdetr_r18vd",
+      "revision": "ac77a11ff0170a41b771c03264987f8ce2b0d753",
+      "license": "Apache-2.0",
+      "directory": "rtdetr_r18vd"
+    },
+    {
+      "name": "google/siglip-base-patch16-224",
+      "revision": "7fd15f0689c79d79e38b1c2e2e2370a7bf2761ed",
+      "license": "Apache-2.0",
+      "directory": "siglip-base-patch16-224"
+    }
+  ],
+  "runtime_files": {
+    "rtdetr_r18vd/model_384.onnx": {
+      "sha256": "d777f785af36550779f3227d358db8fac458e341de417312ee37543808609ffc",
+      "size": 81012039
+    },
+    "rtdetr_r18vd/config.json": {
+      "sha256": "8493be71f51a1c0a741f8f71ec151039227579379de7bcba047c0470d9320c3c",
+      "size": 5267
+    },
+    "rtdetr_r18vd/preprocessor_config.json": {
+      "sha256": "ffb4b9461a1dad746be8f0f9c8330ed7743a1ba5fba4f75c232cd281b3d4c64a",
+      "size": 841
+    },
+    "rtdetr_r18vd/README.md": {
+      "sha256": "0d6d6065595011f4897e724f11d2b86494764eba68e3514cc6c70f0a851e539e",
+      "size": 9102
+    },
+    "siglip-base-patch16-224/vision_224.onnx": {
+      "sha256": "c90b8dce0d13ed0019ec641be335ab225874c63da394c7ec715dc3829fc19480",
+      "size": 371694031
+    },
+    "siglip-base-patch16-224/fixture_text_features.npz": {
+      "sha256": "17a1aa24806bd84f40906b833f2947281095dcd2b355dc22a340d24379a6f8ea",
+      "size": 78740
+    },
+    "siglip-base-patch16-224/scene_text_features.npz": {
+      "sha256": "6c96223f4582b2beceff90cd47d9d63dfbf62b9a81432e07dc180313ff57edbe",
+      "size": 78812
+    },
+    "siglip-base-patch16-224/local_prompt_features.npz": {
+      "sha256": "0295ffe6cbc7c67997508d7ebb8e064f4df55e3b87ee50376e8de097a7cbce4a",
+      "size": 164752
+    },
+    "siglip-base-patch16-224/README.md": {
+      "sha256": "86c231c4a7bf0ee2435295413ad5c7cf567c9426f00b79711ce8eda884b7a8d3",
+      "size": 4116
+    }
+  },
+  "source_files": {
+    "rtdetr_r18vd/model.safetensors": {
+      "sha256": "fe87a5a30f5daf298d10794c7682a63b6107986f97d6a770ba948d89e4340093",
+      "size": 80904152
+    },
+    "rtdetr_r18vd/config.json": {
+      "sha256": "8493be71f51a1c0a741f8f71ec151039227579379de7bcba047c0470d9320c3c",
+      "size": 5267
+    },
+    "rtdetr_r18vd/preprocessor_config.json": {
+      "sha256": "ffb4b9461a1dad746be8f0f9c8330ed7743a1ba5fba4f75c232cd281b3d4c64a",
+      "size": 841
+    },
+    "rtdetr_r18vd/README.md": {
+      "sha256": "0d6d6065595011f4897e724f11d2b86494764eba68e3514cc6c70f0a851e539e",
+      "size": 9102
+    },
+    "siglip-base-patch16-224/model.safetensors": {
+      "sha256": "2c63cb7d1f2e95ba501893cbb8faeb4ea9a3af295498d35097126228659c2af8",
+      "size": 812672320
+    },
+    "siglip-base-patch16-224/config.json": {
+      "sha256": "cd85b3d28829722820bcb89a2cfbb4160e55fd359249a3044da724166a8d9688",
+      "size": 432
+    },
+    "siglip-base-patch16-224/preprocessor_config.json": {
+      "sha256": "d11ccb80f15d358a11bdb070e92e2d889005874b7db15823d5f10d9b2533b14a",
+      "size": 368
+    },
+    "siglip-base-patch16-224/tokenizer.json": {
+      "sha256": "c6e405cb7c670d56636a9402c81023a55bc6c3c53d89cf02b92f5c5005bfe920",
+      "size": 2399357
+    },
+    "siglip-base-patch16-224/README.md": {
+      "sha256": "86c231c4a7bf0ee2435295413ad5c7cf567c9426f00b79711ce8eda884b7a8d3",
+      "size": 4116
+    }
+  }
+}

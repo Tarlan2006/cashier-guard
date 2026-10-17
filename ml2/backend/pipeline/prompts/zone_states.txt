@@ -1,0 +1,97 @@
+{
+  "anchor.counter_machine": [
+    "a photo of a currency counting machine",
+    "a photo of a banknote counting machine",
+    "a photo of an automatic money counter"
+  ],
+  "anchor.safe": [
+    "a gray metal safe cabinet with a rectangular door",
+    "a small metal cash safe beside a bank counter",
+    "a gray security cabinet against a wall"
+  ],
+  "anchor.laptop": [
+    "a photo of a laptop computer",
+    "a photo of an open laptop on a desk",
+    "a photo of a notebook computer"
+  ],
+  "anchor.phone": [
+    "a photo of a mobile phone",
+    "a photo of a smartphone on a desk",
+    "a photo of a telephone"
+  ],
+  "anchor.reject_glass": [
+    "a photo of a glass partition",
+    "a photo of a transparent glass window",
+    "a photo of a reflection in glass"
+  ],
+  "anchor.reject_surface": [
+    "a photo of a white table",
+    "a photo of a desk surface",
+    "a photo of an office chair"
+  ],
+  "anchor.reject_other": [
+    "a photo of an unidentified object",
+    "a photo of an empty counter",
+    "a photo of a document on a desk"
+  ],
+  "anchor.reject_bag": [
+    "a photo of a handbag",
+    "a photo of a suitcase",
+    "a photo of a backpack"
+  ],
+  "anchor.reject_monitor": [
+    "a photo of a computer monitor",
+    "a photo of a television screen",
+    "a photo of a display screen"
+  ],
+  "table.items": [
+    "banknotes lying on a bank counter",
+    "papers and loose objects lying on a desk",
+    "an unattended bag lying on a table"
+  ],
+  "table.empty": [
+    "an empty tabletop without loose objects",
+    "a clean bank counter without money or papers",
+    "an empty desk surface"
+  ],
+  "table.held": [
+    "money held in a person's hands",
+    "a person holding papers above a counter",
+    "a person holding a bag"
+  ],
+  "table.unknown": [
+    "a person's clothing covering the view",
+    "a chair or the floor",
+    "a table obscured by a person's body"
+  ],
+  "safe.open": [
+    "a metal safe with its door open",
+    "an open gray safe showing its dark interior",
+    "an open safe door beside a cabinet"
+  ],
+  "safe.closed": [
+    "a metal safe with its door closed",
+    "a closed gray safe cabinet",
+    "the front of a closed safe"
+  ],
+  "safe.unknown": [
+    "a glass partition or window",
+    "a computer monitor",
+    "a cabinet whose door is obscured"
+  ],
+  "laptop.unlocked": [
+    "a laptop screen displaying application windows",
+    "a computer desktop with an open program",
+    "an active laptop workspace"
+  ],
+  "laptop.locked": [
+    "a laptop screen showing a login form",
+    "a computer screen asking for a password",
+    "the lock screen of a laptop"
+  ],
+  "laptop.unknown": [
+    "a dark or unreadable computer screen",
+    "a closed laptop lid",
+    "glare obscuring a computer screen"
+  ]
+}

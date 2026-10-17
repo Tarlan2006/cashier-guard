@@ -1,0 +1,22 @@
+# Dependencies used by the existing stage-1 scripts.
+# CPU PyTorch is already installed locally; use a CUDA build on NVIDIA hosts.
+torch==2.14.1
+numpy==2.5.2
+pillow==12.3.0
+opencv-python==5.0.0.93
+openpyxl==3.1.5
+transformers==5.20.1
+tokenizers==0.23.3
+scikit-learn==1.9.1
+scipy==1.18.1
+onnx==1.23.2
+onnxruntime==1.31.0
+# Local evaluation only: text/color extraction from the supplied annotation PDF.
+pypdf==6.12.2
+
+# Local HTTP adapter and contract/integration checks
+fastapi==0.143.3
+uvicorn==0.54.0
+python-multipart==0.0.32
+httpx==0.28.1
+jsonschema==4.26.0
