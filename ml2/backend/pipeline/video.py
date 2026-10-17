@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Callable, Iterator, Sequence
 
 import av
+from av.video.reformatter import Colorspace
 import cv2
 import numpy as np
 
@@ -95,7 +96,9 @@ class VideoReader:
         if not self._container.streams.video:
             raise ValueError("Input has no video stream")
         self._stream = self._container.streams.video[0]
-        self._stream.codec_context.thread_count = 2
+        # Decoding and model inference share the CPU. Limit decode concurrency
+        # alongside the resident detector / scene encoder thread pools.
+        self._stream.codec_context.thread_count = 1
 
     def __enter__(self) -> VideoReader:
         return self
@@ -131,6 +134,17 @@ class VideoReader:
             )
         return frame
 
+    def _bgr(self, frame: av.VideoFrame) -> np.ndarray:
+        # Preserve the BT.601 YUV->BGR conversion used by the former OpenCV
+        # reader and therefore by existing detector/appearance thresholds.
+        # PyAV otherwise follows the source's matrix tags, changing pixels
+        # and even track associations on the same source frames. This is a
+        # pipeline compatibility choice, not a claim of colorimetric accuracy.
+        # Source color range remains automatic; PTS are unaffected.
+        return self._orient(
+            frame.to_ndarray(format="bgr24", src_colorspace=Colorspace.ITU601)
+        )
+
     def _rewind(self) -> None:
         # Reopening is a reliable fallback for MOV files with a broken seek
         # index and flushes decoder state after earlier random-access reads.
@@ -161,7 +175,7 @@ class VideoReader:
             if actual + 1e-8 < target:
                 continue
             yield VideoSample(
-                target, actual, self._orient(raw.to_ndarray(format="bgr24"))
+                target, actual, self._bgr(raw)
             )
             # A source gap has no invented frames. Each decoded image is
             # emitted at most once, even if it crosses several grid points.
@@ -214,7 +228,7 @@ class VideoReader:
             raise ValueError("Cannot decode evidence frame")
         actual, frame = best
         return VideoSample(
-            target, actual, self._orient(frame.to_ndarray(format="bgr24"))
+            target, actual, self._bgr(frame)
         )
 
 

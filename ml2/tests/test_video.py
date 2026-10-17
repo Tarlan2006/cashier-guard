@@ -30,7 +30,7 @@ class Frame:
             else np.full((2, 4, 3), index * 20, np.uint8)
         )
 
-    def to_ndarray(self, format):
+    def to_ndarray(self, format, **kwargs):
         assert format == "bgr24"
         return self.raw.copy()
 
@@ -184,6 +184,24 @@ class VideoReaderTests(unittest.TestCase):
         with VideoReader(self.path) as reader:
             self.assertEqual((reader.metadata.width, reader.metadata.height), (32, 64))
             self.assertEqual(reader.read_at(0).frame_bgr.shape, (64, 32, 3))
+
+    def test_tagged_h264_keeps_prior_opencv_pixels_and_pts(self):
+        self.path = self.path.with_suffix(".mp4")
+        normalized_mp4(self.path, colorspace=1)
+        with av.open(str(self.path)) as source:
+            raw = next(source.decode(video=0))
+            self.assertEqual(raw.colorspace, 1)  # BT.709 source tag.
+            first_pts = float(raw.pts * raw.time_base)
+        capture = cv2.VideoCapture(str(self.path))
+        try:
+            ok, prior_pixels = capture.read()
+            self.assertTrue(ok)
+        finally:
+            capture.release()
+        with VideoReader(self.path) as reader:
+            sample = next(reader.iter_samples())
+        self.assertEqual(sample.actual_timestamp_sec, first_pts)
+        np.testing.assert_array_equal(sample.frame_bgr, prior_pixels)
 
     def test_contact_sheet_reuses_facts_without_detector(self):
         self._write_video()

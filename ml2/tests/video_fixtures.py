@@ -7,7 +7,11 @@ import numpy as np
 
 
 def normalized_mp4(
-    path: Path, times_ms=(0, 100, 200, 900, 1000, 1600), *, rotation=0
+    path: Path,
+    times_ms=(0, 100, 200, 900, 1000, 1600),
+    *,
+    rotation=0,
+    colorspace: int | None = None,
 ) -> None:
     with av.open(str(path), mode="w", format="mp4") as container:
         stream = container.add_stream("libx264", rate=30)
@@ -15,6 +19,8 @@ def normalized_mp4(
         stream.pix_fmt = "yuv420p"
         stream.time_base = stream.codec_context.time_base = Fraction(1, 1000)
         stream.options = {"preset": "veryfast", "crf": "18", "bf": "0"}
+        if colorspace is not None:
+            stream.codec_context.colorspace = colorspace
         if rotation:
             stream.set_display_rotation(rotation)
         for index, timestamp in enumerate(times_ms):
