@@ -1,0 +1,26 @@
+# Share preparation code; keep local inputs and generated previews on this machine.
+!/work/
+/work/*
+!/work/audit_forte.py
+!/work/build_annotation_draft.py
+!/work/forte-table/
+/work/forte-table/*
+!/work/forte-table/build.mjs
+!/work/legal/
+/work/legal/*
+!/work/legal/build-catalog.mjs
+!/work/legal/rules-data.json
+!/work/legal/nbk-231-current.pdf
+!/work/legal/nbk-231-current.txt
+
+/local/
+/videos/
+/evidence/
+/models/
+node_modules
+*.mov
+*.MOV
+*.mp4
+*.MP4
+*.zip
+~$*

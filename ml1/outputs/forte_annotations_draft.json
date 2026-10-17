@@ -1,0 +1,1420 @@
+{
+  "schema_version": 1,
+  "purpose": "annotation_draft_not_model_output",
+  "created_on": "2026-10-17",
+  "description": "Черновик локальной разметки. Заполнены только метаданные и временные отметки. Описания и юридическая классификация вводятся и проверяются локально.",
+  "source_manifest": "forte_dataset_manifest.json",
+  "source_rule_catalog": "forte_rules_kz.json",
+  "source_video_root": null,
+  "policy": {
+    "video_content_processed": false,
+    "all_source_annotations_preserved": true,
+    "split_unit": "sha256",
+    "counts_are_candidates_not_confirmed_violations": true,
+    "api_verdicts": [
+      "violation",
+      "no_violation"
+    ],
+    "do_not_use_as_prediction_lookup": true
+  },
+  "videos": [
+    {
+      "content_group": "X-1",
+      "sha256": "8911a9219b9433091824e553a70bb80335f075fd8ac982d2062d2ecf023c16bc",
+      "files": [
+        "X-1.mov"
+      ],
+      "relative_video_paths": [
+        "videos/X-1.mov"
+      ],
+      "duration_sec": 25.934,
+      "source_annotations": [
+        {
+          "source_video_id": "X-1",
+          "source_file": "X-1.mov",
+          "label": "нарушение",
+          "timestamp_raw": "22 секунда",
+          "timecode_sec": 22
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-1-E01",
+          "timecode_sec": 22,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-2",
+      "sha256": "9932ae0a10d3b9371bf52ea558dc19092fcf47adcd275a73a52a56b95464bca6",
+      "files": [
+        "X-2.mov"
+      ],
+      "relative_video_paths": [
+        "videos/X-2.mov"
+      ],
+      "duration_sec": 17.067,
+      "source_annotations": [
+        {
+          "source_video_id": "X-2",
+          "source_file": "X-2.mov",
+          "label": "нарушение",
+          "timestamp_raw": "10 секунда",
+          "timecode_sec": 10
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-2-E01",
+          "timecode_sec": 10,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-3",
+      "sha256": "21468fcef4ea5f45ce7d465e620f84e09c8b50314f4ecdc06f69224c701b3a5b",
+      "files": [
+        "Х-3.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-3.mov"
+      ],
+      "duration_sec": 20.034,
+      "source_annotations": [
+        {
+          "source_video_id": "X-3",
+          "source_file": "Х-3.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-4",
+      "sha256": "5385be9420e6a70547d6bcfd0b13d60f9c0738877645afa277d09550a96b8445",
+      "files": [
+        "Х-4.mov",
+        "Х-47.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-4.mov",
+        "videos/Х-47.mov"
+      ],
+      "duration_sec": 72.7,
+      "source_annotations": [
+        {
+          "source_video_id": "X-4",
+          "source_file": "Х-4.mov",
+          "label": "нарушение",
+          "timestamp_raw": "57 секунда",
+          "timecode_sec": 57
+        },
+        {
+          "source_video_id": "X-47",
+          "source_file": "Х-47.mov",
+          "label": "нарушение",
+          "timestamp_raw": "1минута 8 секунда",
+          "timecode_sec": 68
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-4-E01",
+          "timecode_sec": 57,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        },
+        {
+          "event_id": "X-4-E02",
+          "timecode_sec": 68,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-5",
+      "sha256": "1f5840bff58f298e89c4afa00cb1c18f6dafc5c4096c251d9b507604ebefe906",
+      "files": [
+        "Х-5.mov",
+        "Х-48.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-5.mov",
+        "videos/Х-48.mov"
+      ],
+      "duration_sec": 71.6,
+      "source_annotations": [
+        {
+          "source_video_id": "X-5",
+          "source_file": "Х-5.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        },
+        {
+          "source_video_id": "X-48",
+          "source_file": "Х-48.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-8",
+      "sha256": "6a53e10acdcf52396ad5b1697eead32d8322c0911d792523a5c33fe5b388f4e7",
+      "files": [
+        "Х-8.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-8.mov"
+      ],
+      "duration_sec": 38.034,
+      "source_annotations": [
+        {
+          "source_video_id": "X-8",
+          "source_file": "Х-8.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-10",
+      "sha256": "57a0e46c7a45f0e831f61d9c80722fefe4b74dbcfe1d3031ff58307d481f9a5c",
+      "files": [
+        "Х-10.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-10.mov"
+      ],
+      "duration_sec": 15.567,
+      "source_annotations": [
+        {
+          "source_video_id": "X-10",
+          "source_file": "Х-10.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-11",
+      "sha256": "b3a954a5b761ad47943e061599315e3fe9d22573eeb92bb14bf315cdcd422fc5",
+      "files": [
+        "Х-11.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-11.mov"
+      ],
+      "duration_sec": 25.6,
+      "source_annotations": [
+        {
+          "source_video_id": "X-11",
+          "source_file": "Х-11.mov",
+          "label": "нарушение",
+          "timestamp_raw": "18 секунда",
+          "timecode_sec": 18
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-11-E01",
+          "timecode_sec": 18,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-12",
+      "sha256": "955755baf54418b48ea645dcd98e7e8dcca1d1e227e9b286a9427062db304fd4",
+      "files": [
+        "Х-12.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-12.mov"
+      ],
+      "duration_sec": 42.3,
+      "source_annotations": [
+        {
+          "source_video_id": "X-12",
+          "source_file": "Х-12.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-13",
+      "sha256": "a37930cf119bb691be77d8624b18333b04d9c67066a7f4627d63e3208dfa6057",
+      "files": [
+        "Х-13.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-13.mov"
+      ],
+      "duration_sec": 65.3,
+      "source_annotations": [
+        {
+          "source_video_id": "X-13",
+          "source_file": "Х-13.mov",
+          "label": "нарушение",
+          "timestamp_raw": "47 секунда",
+          "timecode_sec": 47
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-13-E01",
+          "timecode_sec": 47,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        },
+        {
+          "event_id": "X-13-E02",
+          "timecode_sec": 50,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "user_addition",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-14",
+      "sha256": "7d6890ecb4a2b28bbdd3b61b6711566eee84a53ab3439c40cd9b6a3a6714c681",
+      "files": [
+        "Х-14.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-14.mov"
+      ],
+      "duration_sec": 142.534,
+      "source_annotations": [
+        {
+          "source_video_id": "X-14",
+          "source_file": "Х-14.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-15",
+      "sha256": "69caf59620fcd80bedcb664514730ab38f2f800da27000a8e037d7440be5dc7a",
+      "files": [
+        "Х-15.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-15.mov"
+      ],
+      "duration_sec": 20.867,
+      "source_annotations": [
+        {
+          "source_video_id": "X-15",
+          "source_file": "Х-15.mov",
+          "label": "нарушение",
+          "timestamp_raw": "15 секунда",
+          "timecode_sec": 15
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-15-E01",
+          "timecode_sec": 15,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-16",
+      "sha256": "3f516431cf37e3900b7eae857a7b09be258f485702ab56bc6e5b6129103f1fa5",
+      "files": [
+        "Х-16.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-16.mov"
+      ],
+      "duration_sec": 22.734,
+      "source_annotations": [
+        {
+          "source_video_id": "X-16",
+          "source_file": "Х-16.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-17",
+      "sha256": "0378b8026b2e6afd1775a5d0fdd12dd09c491785b626e9c20428f7dc6bd59364",
+      "files": [
+        "Х-17.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-17.mov"
+      ],
+      "duration_sec": 14.734,
+      "source_annotations": [
+        {
+          "source_video_id": "X-17",
+          "source_file": "Х-17.mov",
+          "label": "нарушение",
+          "timestamp_raw": "7 секунда",
+          "timecode_sec": 7
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-17-E01",
+          "timecode_sec": 7,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-18",
+      "sha256": "90607b0b0cb772fcf29b0c7e0e56fa6af36da6fac0efe93b8a616b5de94a156c",
+      "files": [
+        "Х-18.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-18.mov"
+      ],
+      "duration_sec": 22.6,
+      "source_annotations": [
+        {
+          "source_video_id": "X-18",
+          "source_file": "Х-18.mov",
+          "label": "нарушение",
+          "timestamp_raw": "20 секунда",
+          "timecode_sec": 20
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-18-E01",
+          "timecode_sec": 20,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-19",
+      "sha256": "16065504b21260bff18698c7bbf048ffa356c9de43d43b92643b6c2eddedac0f",
+      "files": [
+        "Х-19.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-19.mov"
+      ],
+      "duration_sec": 57.434,
+      "source_annotations": [
+        {
+          "source_video_id": "X-19",
+          "source_file": "Х-19.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-20",
+      "sha256": "7e585e33517f7258bd2d1ed3e139556609bc997bb07b78355555060ef193b77a",
+      "files": [
+        "Х-20.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-20.mov"
+      ],
+      "duration_sec": 11.634,
+      "source_annotations": [
+        {
+          "source_video_id": "X-20",
+          "source_file": "Х-20.mov",
+          "label": "нарушение",
+          "timestamp_raw": "5 секунда",
+          "timecode_sec": 5
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-20-E01",
+          "timecode_sec": 5,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-21",
+      "sha256": "efd876a04224cac781ac64bf5d6e107ded67340b7b7715fd9ca3408b240a1075",
+      "files": [
+        "Х-21.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-21.mov"
+      ],
+      "duration_sec": 19.6,
+      "source_annotations": [
+        {
+          "source_video_id": "X-21",
+          "source_file": "Х-21.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-22",
+      "sha256": "c9a30d44907e4a41b3a8ccf101774cd2e0804de20927bfbc9e1ccba1f2326b78",
+      "files": [
+        "Х-22.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-22.mov"
+      ],
+      "duration_sec": 21.034,
+      "source_annotations": [
+        {
+          "source_video_id": "X-22",
+          "source_file": "Х-22.mov",
+          "label": "нарушение",
+          "timestamp_raw": "14 секунда",
+          "timecode_sec": 14
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-22-E01",
+          "timecode_sec": 14,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-23",
+      "sha256": "b637677ef5a7f0fa54d9f116ce6493cf74a4c99b8149a9c9916b96ef257535bd",
+      "files": [
+        "Х-23.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-23.mov"
+      ],
+      "duration_sec": 18.267,
+      "source_annotations": [
+        {
+          "source_video_id": "X-23",
+          "source_file": "Х-23.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-24",
+      "sha256": "c175a683749401d5a9ecf6f1c188b64fa8a09543f41482c1e4eb2232255715d3",
+      "files": [
+        "Х-24.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-24.mov"
+      ],
+      "duration_sec": 14.7,
+      "source_annotations": [
+        {
+          "source_video_id": "X-24",
+          "source_file": "Х-24.mov",
+          "label": "нарушение",
+          "timestamp_raw": "8 секунда",
+          "timecode_sec": 8
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-24-E01",
+          "timecode_sec": 8,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-25",
+      "sha256": "901f61cf1a1b8754dda56466308c19fc203a1a4c0e85d1e7827849d34e2d52f0",
+      "files": [
+        "Х-25.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-25.mov"
+      ],
+      "duration_sec": 31.7,
+      "source_annotations": [
+        {
+          "source_video_id": "X-25",
+          "source_file": "Х-25.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-26",
+      "sha256": "e3a00b6e0f38b1d9b5498140f14906c71e204359262a90ce7a9974d64bf081e9",
+      "files": [
+        "Х-26.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-26.mov"
+      ],
+      "duration_sec": 19.8,
+      "source_annotations": [
+        {
+          "source_video_id": "X-26",
+          "source_file": "Х-26.mov",
+          "label": "нарушение",
+          "timestamp_raw": "9 секунда",
+          "timecode_sec": 9
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-26-E01",
+          "timecode_sec": 9,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-27",
+      "sha256": "d3d21494d74e40a7586fe4f6164e515f6621a2d413538c4e15c67d394e85fc2d",
+      "files": [
+        "Х-27.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-27.mov"
+      ],
+      "duration_sec": 26.434,
+      "source_annotations": [
+        {
+          "source_video_id": "X-27",
+          "source_file": "Х-27.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-28",
+      "sha256": "d15ef04bcfae571bd2d7fc4e4d709ba595ae19f44136a43e7277f17e7b6e5b6d",
+      "files": [
+        "Х-28.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-28.mov"
+      ],
+      "duration_sec": 16.534,
+      "source_annotations": [
+        {
+          "source_video_id": "X-28",
+          "source_file": "Х-28.mov",
+          "label": "нарушение",
+          "timestamp_raw": "7 секунда",
+          "timecode_sec": 7
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-28-E01",
+          "timecode_sec": 7,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-29",
+      "sha256": "b9bfb76ac8ea47eb368fc78a2f6370e4d98e79185972f63cf301ee22f12b5941",
+      "files": [
+        "Х-29.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-29.mov"
+      ],
+      "duration_sec": 17.3,
+      "source_annotations": [
+        {
+          "source_video_id": "X-29",
+          "source_file": "Х-29.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-30",
+      "sha256": "05af66ce27b83d7c10c5d33b6f1847ec042c01ed21afdcbd43a13abcefd28199",
+      "files": [
+        "Х-30.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-30.mov"
+      ],
+      "duration_sec": 18.8,
+      "source_annotations": [
+        {
+          "source_video_id": "X-30",
+          "source_file": "Х-30.mov",
+          "label": "нарушение",
+          "timestamp_raw": "13 секунда",
+          "timecode_sec": 13
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-30-E01",
+          "timecode_sec": 13,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-31",
+      "sha256": "6a9fa7dd2e6db4cbe57f3c96a6cb256f23c04aa4e6fd44622fdf5de662cc0649",
+      "files": [
+        "Х-31.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-31.mov"
+      ],
+      "duration_sec": 23.8,
+      "source_annotations": [
+        {
+          "source_video_id": "X-31",
+          "source_file": "Х-31.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-32",
+      "sha256": "bcc277cbf1a36245156b2bb9a0e0b826432390b42040c0b82201a8c21ab23ce9",
+      "files": [
+        "Х-32.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-32.mov"
+      ],
+      "duration_sec": 21.3,
+      "source_annotations": [
+        {
+          "source_video_id": "X-32",
+          "source_file": "Х-32.mov",
+          "label": "нарушение",
+          "timestamp_raw": "5 секунда",
+          "timecode_sec": 5
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-32-E01",
+          "timecode_sec": 5,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-33",
+      "sha256": "209e8aaca88df59064e5f28b3bcc489fee3eea9eb920889b69c03c83d52430c6",
+      "files": [
+        "Х-33.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-33.mov"
+      ],
+      "duration_sec": 14.334,
+      "source_annotations": [
+        {
+          "source_video_id": "X-33",
+          "source_file": "Х-33.mov",
+          "label": "нарушение",
+          "timestamp_raw": "6 секунда",
+          "timecode_sec": 6
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-33-E01",
+          "timecode_sec": 6,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-34",
+      "sha256": "f3e351bea71150f4e8c76e2c8f0656a4e92063319d7cd39e264078c5ba9139c3",
+      "files": [
+        "Х-34.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-34.mov"
+      ],
+      "duration_sec": 17.734,
+      "source_annotations": [
+        {
+          "source_video_id": "X-34",
+          "source_file": "Х-34.mov",
+          "label": "нарушение",
+          "timestamp_raw": "13 секунда",
+          "timecode_sec": 13
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-34-E01",
+          "timecode_sec": 13,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-35",
+      "sha256": "26430119e074d6f0eb5dbc7ec3e26bbc31cf18903265bb4372bd7d7104908640",
+      "files": [
+        "Х-35.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-35.mov"
+      ],
+      "duration_sec": 56.767,
+      "source_annotations": [
+        {
+          "source_video_id": "X-35",
+          "source_file": "Х-35.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-37",
+      "sha256": "ac4cf04844c0aa08a5e19f5f7fe984f1477943294922d6ef77bdc5b88b97160e",
+      "files": [
+        "Х-37.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-37.mov"
+      ],
+      "duration_sec": 15.867,
+      "source_annotations": [
+        {
+          "source_video_id": "X-37",
+          "source_file": "Х-37.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-38",
+      "sha256": "5a6f6a13ef88191ec1d9a2a303f1be74d16aa3381a57aaadba8850aac715ff10",
+      "files": [
+        "Х-38.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-38.mov"
+      ],
+      "duration_sec": 58.967,
+      "source_annotations": [
+        {
+          "source_video_id": "X-38",
+          "source_file": "Х-38.mov",
+          "label": "нарушение",
+          "timestamp_raw": "33 секунда",
+          "timecode_sec": 33
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-38-E01",
+          "timecode_sec": 33,
+          "supporting_timecodes_sec": [
+            52
+          ],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": "33 и 52 секунды относятся к одному эпизоду по уточнению пользователя.",
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-39",
+      "sha256": "deeeee54539fb894b17447296bd7f0807b9dc662bad9af4dcd27f4fbdd677187",
+      "files": [
+        "Х-39.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-39.mov"
+      ],
+      "duration_sec": 78.734,
+      "source_annotations": [
+        {
+          "source_video_id": "X-39",
+          "source_file": "Х-39.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-40",
+      "sha256": "6a81739ced0efdcd4a4feb76ea16562a20ceb53a2232a801528716c450366c9f",
+      "files": [
+        "Х-40.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-40.mov"
+      ],
+      "duration_sec": 25.267,
+      "source_annotations": [
+        {
+          "source_video_id": "X-40",
+          "source_file": "Х-40.mov",
+          "label": "нарушение",
+          "timestamp_raw": "17 секунда",
+          "timecode_sec": 17
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-40-E01",
+          "timecode_sec": 17,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-43",
+      "sha256": "39e28d7be01cdb090ede1881ce3ef704fa413271deb69d6735c1953f340d6069",
+      "files": [
+        "Х-43.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-43.mov"
+      ],
+      "duration_sec": 23.367,
+      "source_annotations": [
+        {
+          "source_video_id": "X-43",
+          "source_file": "Х-43.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-44",
+      "sha256": "9774ed882153af3ba1a7e71c9b9249619e2b3a97ae336aad6143369802ca3522",
+      "files": [
+        "Х-44.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-44.mov"
+      ],
+      "duration_sec": 20.434,
+      "source_annotations": [
+        {
+          "source_video_id": "X-44",
+          "source_file": "Х-44.mov",
+          "label": "нарушение",
+          "timestamp_raw": "16 секунда",
+          "timecode_sec": 16
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-44-E01",
+          "timecode_sec": 16,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    },
+    {
+      "content_group": "X-45",
+      "sha256": "524bf9ff2d5e81211dbbeff73129dbb5f3a5e5e35a64f443f53e16b1c2d471c7",
+      "files": [
+        "Х-45.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-45.mov"
+      ],
+      "duration_sec": 33.334,
+      "source_annotations": [
+        {
+          "source_video_id": "X-45",
+          "source_file": "Х-45.mov",
+          "label": "без нарушения",
+          "timestamp_raw": null,
+          "timecode_sec": null
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": []
+    },
+    {
+      "content_group": "X-46",
+      "sha256": "66fc5d28c2371592f9260305589bdc86636fdd2ebe7a7ec976eec00a23d43df4",
+      "files": [
+        "Х-46.mov"
+      ],
+      "relative_video_paths": [
+        "videos/Х-46.mov"
+      ],
+      "duration_sec": 19.134,
+      "source_annotations": [
+        {
+          "source_video_id": "X-46",
+          "source_file": "Х-46.mov",
+          "label": "нарушение",
+          "timestamp_raw": "11 секунда",
+          "timecode_sec": 11
+        }
+      ],
+      "split": null,
+      "full_video_review_status": "not_reviewed",
+      "events": [
+        {
+          "event_id": "X-46-E01",
+          "timecode_sec": 11,
+          "supporting_timecodes_sec": [],
+          "timecode_provenance": "organizer_annotation",
+          "grouping_note": null,
+          "review_status": "needs_review",
+          "observation_local": null,
+          "type_local": null,
+          "rule_references": [],
+          "conditions_checked": false,
+          "exceptions_checked": false,
+          "is_omission": null,
+          "context_start_sec": null,
+          "context_end_sec": null,
+          "complete_operation_visible": null,
+          "evidence_frames_local": [],
+          "review_note_local": null
+        }
+      ]
+    }
+  ]
+}
