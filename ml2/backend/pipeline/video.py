@@ -1,7 +1,7 @@
-"""Local, image-only video decoding with one explicit orientation transform.
+"""Local video-only decoding. Source times are frame.pts * frame.time_base.
 
-Timeline timestamps are on an exact requested grid; ``actual_timestamp_sec``
-always identifies the decoded source frame. No audio streams are opened.
+PTS are never inferred from frame numbers or FPS and are not rebased to zero:
+normalized MP4 may retain an empty leading edit or variable frame spacing.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator, Sequence
 
+import av
 import cv2
 import numpy as np
 
@@ -33,45 +34,68 @@ class VideoSample:
 
 
 class VideoReader:
-    """Decode a local video; normalized boxes refer to the oriented image.
+    """Read presentation timestamps and rotate raw pixels exactly once.
 
-    OpenCV's implicit orientation is disabled and checked before decoding.
-    Rotation metadata is then applied manually, exactly once. An unsupported
-    backend that cannot disable a nonzero automatic rotation is rejected.
-    ``iter_samples`` selects the first source frame at or after each target;
-    the offset is normally at most one source-frame period, including VFR.
+    FPS and frame_count are informational metadata only. Sampling, seeking,
+    evidence and the video end time use timestamp/time-base units.
+    Only the first video stream is decoded; audio is never decoded.
     """
 
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
+        self._container = None
         if not self.path.is_file():
             raise FileNotFoundError(self.path)
-        self._capture = cv2.VideoCapture(str(self.path))
-        if not self._capture.isOpened():
-            self._capture.release()
-            raise ValueError(f"Cannot decode video: {self.path}")
-        rotation = self._capture.get(cv2.CAP_PROP_ORIENTATION_META)
-        self._rotation = int(round(rotation)) % 360 if math.isfinite(rotation) else 0
-        if self._rotation not in (0, 90, 180, 270):
+        try:
+            self._open()
+            first = next(self._container.decode(self._stream))
+            self._first_time = self._source_time(first)
+            angle = float(first.rotation)
+            if not math.isfinite(angle) or abs(angle / 90 - round(angle / 90)) > 1e-6:
+                raise ValueError("Unsupported video rotation")
+            # PyAV's display matrix is counter-clockwise; metadata here keeps
+            # the existing clockwise convention used by scene/debug code.
+            self._rotation = (-int(round(angle))) % 360
+            width, height = first.width, first.height
+            if self._rotation in (90, 270):
+                width, height = height, width
+            if self._stream.duration is not None:
+                start = float((self._stream.start_time or 0) * self._stream.time_base)
+                end = start + float(self._stream.duration * self._stream.time_base)
+            elif self._container.duration is not None:
+                start = float((self._container.start_time or 0) / av.time_base)
+                end = start + float(self._container.duration / av.time_base)
+            else:
+                raise ValueError("Video has no timestamp-based duration")
+            if (
+                not math.isfinite(end)
+                or end <= self._first_time
+                or min(width, height) <= 0
+            ):
+                raise ValueError("Invalid video duration or dimensions")
+            self.metadata = VideoMetadata(
+                end,
+                width,
+                height,
+                float(self._stream.average_rate or 0),
+                self._rotation,
+                int(self._stream.frames or 0),
+            )
+        except (av.FFmpegError, StopIteration) as exc:
             self.close()
-            raise ValueError(f"Unsupported video rotation: {rotation}")
-        self._capture.set(cv2.CAP_PROP_ORIENTATION_AUTO, 0)
-        if self._rotation and self._capture.get(cv2.CAP_PROP_ORIENTATION_AUTO) > 0.5:
+            raise ValueError("Cannot decode video") from exc
+        except Exception:
             self.close()
-            raise RuntimeError("Decoder cannot disable automatic orientation reliably")
+            raise
 
-        fps = float(self._capture.get(cv2.CAP_PROP_FPS))
-        count = int(self._capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        width = int(self._capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(self._capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        if not math.isfinite(fps) or fps <= 0 or count <= 0 or min(width, height) <= 0:
-            self.close()
-            raise ValueError(f"Invalid video timing or dimensions: {self.path}")
-        if self._rotation in (90, 270):
-            width, height = height, width
-        self.metadata = VideoMetadata(
-            count / fps, width, height, fps, self._rotation, count
+    def _open(self) -> None:
+        self._container = av.open(
+            str(self.path), mode="r", options={"protocol_whitelist": "file"}
         )
+        if not self._container.streams.video:
+            raise ValueError("Input has no video stream")
+        self._stream = self._container.streams.video[0]
+        self._stream.codec_context.thread_count = 2
 
     def __enter__(self) -> VideoReader:
         return self
@@ -80,7 +104,18 @@ class VideoReader:
         self.close()
 
     def close(self) -> None:
-        self._capture.release()
+        if self._container is not None:
+            self._container.close()
+            self._container = None
+
+    @staticmethod
+    def _source_time(frame) -> float:
+        if frame.pts is None or frame.time_base is None:
+            raise ValueError("Video frame has no presentation timestamp")
+        value = float(frame.pts * frame.time_base)
+        if not math.isfinite(value) or value < 0:
+            raise ValueError("Invalid video frame presentation timestamp")
+        return value
 
     def _orient(self, frame: np.ndarray) -> np.ndarray:
         rotations = {
@@ -96,15 +131,22 @@ class VideoReader:
             )
         return frame
 
-    def _source_time(self, index: int) -> float:
-        milliseconds = float(self._capture.get(cv2.CAP_PROP_POS_MSEC))
-        if (
-            math.isfinite(milliseconds)
-            and milliseconds >= 0
-            and (index == 0 or milliseconds > 0)
-        ):
-            return milliseconds / 1000.0
-        return index / self.metadata.fps
+    def _rewind(self) -> None:
+        # Reopening is a reliable fallback for MOV files with a broken seek
+        # index and flushes decoder state after earlier random-access reads.
+        self.close()
+        self._open()
+
+    def _frames(self):
+        previous = -1.0
+        for frame in self._container.decode(self._stream):
+            timestamp = self._source_time(frame)
+            if timestamp < previous:
+                raise ValueError(
+                    "Decoder returned non-monotonic presentation timestamps"
+                )
+            previous = timestamp
+            yield timestamp, frame
 
     def iter_samples(
         self, interval_sec: float | Callable[[float], float] = 0.5
@@ -113,137 +155,76 @@ class VideoReader:
             not math.isfinite(interval_sec) or interval_sec <= 0
         ):
             raise ValueError("interval_sec must be finite and positive")
-        self._capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
-        sample_index = 0
-        target = 0.0
-        source_index = 0
-        last_time = -1.0
-        while self._capture.grab():
-            actual = self._source_time(source_index)
-            if actual < last_time:
-                raise RuntimeError("Decoder returned non-monotonic source timestamps")
-            last_time = actual
-            final_frame = source_index == self.metadata.frame_count - 1
-            if (
-                actual + 1e-8 >= target
-                or final_frame
-                and target < self.metadata.duration_sec
-            ):
-                ok, raw = self._capture.retrieve()
-                if not ok:
-                    raise RuntimeError(f"Cannot retrieve video frame {source_index}")
-                frame = self._orient(raw)
-                # A gap in source timestamps may cover multiple timeline steps.
-                while target < self.metadata.duration_sec and (
-                    target <= actual + 1e-8 or final_frame
-                ):
-                    yield VideoSample(float(target), float(actual), frame)
-                    sample_index += 1
-                    step = (
-                        float(interval_sec(float(target)))
-                        if callable(interval_sec)
-                        else interval_sec
+        self._rewind()
+        target = self._first_time
+        for actual, raw in self._frames():
+            if actual + 1e-8 < target:
+                continue
+            yield VideoSample(
+                target, actual, self._orient(raw.to_ndarray(format="bgr24"))
+            )
+            # A source gap has no invented frames. Each decoded image is
+            # emitted at most once, even if it crosses several grid points.
+            while target <= actual + 1e-8:
+                step = (
+                    float(interval_sec(target))
+                    if callable(interval_sec)
+                    else interval_sec
+                )
+                if not math.isfinite(step) or step <= 0:
+                    raise ValueError(
+                        "Adaptive sample interval must be positive and finite"
                     )
-                    if not math.isfinite(step) or step <= 0:
-                        raise ValueError(
-                            "Adaptive sample interval must be positive and finite"
-                        )
-                    target += step
-            source_index += 1
+                target += step
 
     def read_at(self, time_sec: float) -> VideoSample:
-        """Seek to a timestamp, recovering MOV/VFR failures near the clip end.
+        """Return the nearest real frame, seeking in stream time-base units.
 
-        A timestamp seek and a frame-index seek are tried first. If both fail,
-        seek a little earlier and decode forward; finally rewind if the index
-        is unusable. The retained image always carries its decoded timestamp.
+        A broken/missing seek index falls back once to sequential decoding.
+        Requests beyond the end retain the last real PTS, never an FPS estimate.
         """
         if not math.isfinite(time_sec):
             raise ValueError("time_sec must be finite")
-        last_index = self.metadata.frame_count - 1
-        last_estimate = last_index / self.metadata.fps
-        target = min(max(0.0, float(time_sec)), last_estimate)
+        target = max(self._first_time, float(time_sec))
 
-        def decode() -> VideoSample | None:
-            ok, raw = self._capture.read()
-            if not ok:
-                return None
-            index = max(0, int(round(self._capture.get(cv2.CAP_PROP_POS_FRAMES))) - 1)
-            return VideoSample(target, self._source_time(index), self._orient(raw))
-
-        for prop, value in (
-            (cv2.CAP_PROP_POS_MSEC, target * 1000.0),
-            (
-                cv2.CAP_PROP_POS_FRAMES,
-                min(last_index, round(target * self.metadata.fps)),
-            ),
-        ):
-            if self._capture.set(prop, value):
-                sample = decode()
-                if sample is not None:
-                    return sample
-
-        best: VideoSample | None = None
-
-        def scan(max_frames: int) -> bool:
-            """Keep the nearest available source image; stop after the target."""
-            nonlocal best
-            previous_time = -1.0
-            for _ in range(max_frames):
-                sample = decode()
-                if sample is None:
+        def scan():
+            best = None
+            first_time = None
+            for actual, frame in self._frames():
+                if first_time is None:
+                    first_time = actual
+                if best is None or abs(actual - target) < abs(best[0] - target):
+                    best = (actual, frame)
+                if actual + 1e-8 >= target:
                     break
-                if sample.actual_timestamp_sec < previous_time:
-                    raise RuntimeError(
-                        "Decoder returned non-monotonic source timestamps"
-                    )
-                previous_time = sample.actual_timestamp_sec
-                if best is None or abs(sample.actual_timestamp_sec - target) < abs(
-                    best.actual_timestamp_sec - target
-                ):
-                    best = sample
-                if sample.actual_timestamp_sec + 1e-8 >= target:
-                    return True
-            return False
+            return best, first_time
 
-        # These attempts are bounded to a few seconds, including keyframe slack.
-        attempted: set[tuple[int, float]] = set()
-        for backoff in (0.5, 1.0, 2.0):
-            earlier = max(0.0, target - backoff)
-            for prop, value in (
-                (cv2.CAP_PROP_POS_MSEC, earlier * 1000.0),
-                (cv2.CAP_PROP_POS_FRAMES, max(0, int(earlier * self.metadata.fps))),
-            ):
-                key = (prop, float(value))
-                if key in attempted:
-                    continue
-                attempted.add(key)
-                if self._capture.set(prop, value) and scan(
-                    math.ceil((backoff + 1) * self.metadata.fps) + 4
-                ):
-                    assert best is not None
-                    return best
-        # Broken end-of-file seek tables can still have perfectly readable
-        # sequential frames. Rewind once, never repeatedly scan the whole clip.
-        if self._capture.set(cv2.CAP_PROP_POS_FRAMES, 0):
-            scan(self.metadata.frame_count + 1)
-        if best is not None:
-            return best
-        raise RuntimeError(
-            f"Cannot decode evidence frame at {target:.3f}s: {self.path}"
+        try:
+            ticks = math.floor(target / self._stream.time_base)
+            self._container.seek(
+                ticks, stream=self._stream, backward=True, any_frame=False
+            )
+            best, first_time = scan()
+        except av.FFmpegError:
+            best, first_time = None, None
+        if best is None or first_time > target + 1e-8:
+            self._rewind()
+            best, _ = scan()
+        if best is None:
+            raise ValueError("Cannot decode evidence frame")
+        actual, frame = best
+        return VideoSample(
+            target, actual, self._orient(frame.to_ndarray(format="bgr24"))
         )
 
 
 def extract_jpegs(
     path: str | Path, times_sec: Sequence[float], *, quality: int = 90
 ) -> list[tuple[float, bytes]]:
-    """Return one oriented JPEG and its actual timestamp per requested time.
-
-    Boundary requests may legitimately return the same frame more than once.
-    """
+    """Return original oriented JPEGs paired with their presentation times."""
     if not isinstance(quality, int) or not 1 <= quality <= 100:
         raise ValueError("JPEG quality must be an integer in [1, 100]")
-    images: list[tuple[float, bytes]] = []
+    images = []
     with VideoReader(path) as reader:
         for timestamp in times_sec:
             sample = reader.read_at(float(timestamp))

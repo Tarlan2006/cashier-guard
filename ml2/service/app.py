@@ -72,7 +72,7 @@ def create_app(
             dict(
                 status="ok" if ready else "unavailable",
                 local_only=True,
-                analysis_status="ready" if selected.validated_rule_ids else "partial",
+                analysis_status="ready" if selected.validated_rule_ids else "no_rules",
                 enabled_rule_ids=selected.validated_rule_ids or [],
                 model_loads=runtime.model_loads,
             ),
@@ -120,8 +120,9 @@ def create_app(
             return JSONResponse(
                 body,
                 headers={
-                    "X-Analysis-Status": report["status"],
-                    "X-Analysis-Complete": str(report["analysis_complete"]).lower(),
+                    # No rules is a successful empty ML1 result, not an aborted
+                    # analysis. The internal coverage report is kept separate.
+                    "X-Rules-Enabled": ",".join(report["enabled_rule_ids"]) or "none",
                     "X-Perception-Complete": str(report["perception_complete"]).lower(),
                     "X-Enabled-Rule-Count": str(len(report["enabled_rule_ids"])),
                     "X-Input-Cache": "disabled-between-requests",
@@ -147,6 +148,11 @@ def create_app(
             raise HTTPException(
                 code,
                 "Local analysis did not complete; no clean-video verdict was produced",
+                headers=(
+                    {"X-Analysis-Status": "partial", "X-Analysis-Complete": "false"}
+                    if code == 504
+                    else None
+                ),
             ) from None
         except Exception:
             LOG.exception("Local analyze request error")

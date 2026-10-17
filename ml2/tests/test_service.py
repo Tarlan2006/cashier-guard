@@ -12,6 +12,8 @@ from backend.schemas import Event
 from service.app import create_app
 from service.evidence import compact_jpeg, observations
 from scripts.download_models import verify_files
+from backend.pipeline.video import VideoReader
+from video_fixtures import normalized_mp4
 
 
 def jpeg(size=(32, 24)):
@@ -78,7 +80,7 @@ class ServiceTests(unittest.TestCase):
         )
         self.app = create_app(runtime_factory=FakeRuntime, config=PerceptionConfig())
 
-    def test_models_start_once_and_partial_empty_is_explicit(self):
+    def test_models_start_once_and_no_rules_is_success(self):
         before = FakeRuntime.starts
         with TestClient(self.app) as client:
             for _ in range(2):
@@ -87,11 +89,16 @@ class ServiceTests(unittest.TestCase):
                 )
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.json(), dict(schema_version="1.0", events=[]))
-                self.assertEqual(response.headers["x-analysis-status"], "partial")
+                self.assertNotIn("x-analysis-status", response.headers)
+                self.assertNotIn("x-analysis-complete", response.headers)
+                self.assertEqual(response.headers["x-rules-enabled"], "none")
                 jsonschema.validate(response.json(), self.schema)
             self.assertEqual(FakeRuntime.starts, before + 1)
             self.assertEqual(
                 client.get("/health").json()["model_loads"]["detector_loads"], 1
+            )
+            self.assertEqual(
+                client.get("/health").json()["analysis_status"], "no_rules"
             )
 
     def test_errors_are_not_converted_to_empty_success(self):
@@ -101,6 +108,12 @@ class ServiceTests(unittest.TestCase):
                 self.assertEqual(response.status_code, code)
                 self.assertNotIn("events", response.json())
                 self.assertNotIn("failed", json.dumps(response.json()))
+                if code == 504:
+                    self.assertEqual(response.headers["x-analysis-status"], "partial")
+                    self.assertEqual(response.headers["x-analysis-complete"], "false")
+                else:
+                    self.assertNotIn("x-analysis-status", response.headers)
+                    self.assertNotIn("x-analysis-complete", response.headers)
             self.assertEqual(
                 client.post("/analyze", files={"file": ("a.txt", b"x")}).status_code,
                 415,
@@ -117,6 +130,42 @@ class ServiceTests(unittest.TestCase):
             )
             image.load()
             self.assertEqual(image.format, "JPEG")
+
+    def test_normalized_mp4_upload_is_decoded_with_original_pts(self):
+        class DecodingRuntime(FakeRuntime):
+            def analyze(self, path):
+                self.input_suffix = Path(path).suffix
+                with VideoReader(path) as reader:
+                    self.pts = [
+                        sample.actual_timestamp_sec for sample in reader.iter_samples()
+                    ]
+                return dict(
+                    perception_complete=True,
+                    analysis_complete=False,
+                    error_type=None,
+                    events=[],
+                    status="partial",
+                    enabled_rule_ids=[],
+                    elapsed_sec=0.01,
+                )
+
+        app = create_app(runtime_factory=DecodingRuntime, config=PerceptionConfig())
+        with tempfile.TemporaryDirectory() as directory:
+            video = Path(directory) / "video.mp4"
+            normalized_mp4(video, (2000, 2100, 2200, 2900, 3000, 3600))
+            with TestClient(app) as client, video.open("rb") as stream:
+                response = client.post(
+                    "/analyze", files={"file": ("video.mp4", stream, "video/mp4")}
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(
+                    response.json(), {"schema_version": "1.0", "events": []}
+                )
+                self.assertEqual(response.headers["x-rules-enabled"], "none")
+                self.assertNotIn("x-analysis-status", response.headers)
+                self.assertNotIn("x-analysis-complete", response.headers)
+                self.assertEqual(app.state.runtime.input_suffix, ".mp4")
+                self.assertEqual(app.state.runtime.pts, [2, 2.9, 3, 3.6])
 
     def test_large_source_evidence_is_downsized(self):
         result = compact_jpeg(jpeg((4000, 3000)), max_chars=5000)
