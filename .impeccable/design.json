@@ -1,0 +1,421 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-17T10:23:08.129533+00:00",
+  "title": "Design System: Cashier Guard",
+  "extensions": {
+    "colorMeta": {
+      "green": {
+        "displayName": "Green",
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(15% 0.0650 173.15)",
+          "oklch(26% 0.0650 173.15)",
+          "oklch(38% 0.0650 173.15)",
+          "oklch(49% 0.0650 173.15)",
+          "oklch(61% 0.0650 173.15)",
+          "oklch(72% 0.0650 173.15)",
+          "oklch(84% 0.0650 173.15)",
+          "oklch(95% 0.0650 173.15)"
+        ]
+      },
+      "green-hover": {
+        "displayName": "Green Hover",
+        "role": "primary",
+        "tonalRamp": [
+          "oklch(15% 0.0587 165.86)",
+          "oklch(26% 0.0587 165.86)",
+          "oklch(38% 0.0587 165.86)",
+          "oklch(49% 0.0587 165.86)",
+          "oklch(61% 0.0587 165.86)",
+          "oklch(72% 0.0587 165.86)",
+          "oklch(84% 0.0587 165.86)",
+          "oklch(95% 0.0587 165.86)"
+        ]
+      },
+      "navigation": {
+        "displayName": "Navigation",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.0451 179.52)",
+          "oklch(26% 0.0451 179.52)",
+          "oklch(38% 0.0451 179.52)",
+          "oklch(49% 0.0451 179.52)",
+          "oklch(61% 0.0451 179.52)",
+          "oklch(72% 0.0451 179.52)",
+          "oklch(84% 0.0451 179.52)",
+          "oklch(95% 0.0451 179.52)"
+        ]
+      },
+      "navigation-selected": {
+        "displayName": "Navigation Selected",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.0474 171.20)",
+          "oklch(26% 0.0474 171.20)",
+          "oklch(38% 0.0474 171.20)",
+          "oklch(49% 0.0474 171.20)",
+          "oklch(61% 0.0474 171.20)",
+          "oklch(72% 0.0474 171.20)",
+          "oklch(84% 0.0474 171.20)",
+          "oklch(95% 0.0474 171.20)"
+        ]
+      },
+      "ink": {
+        "displayName": "Ink",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.0137 173.10)",
+          "oklch(26% 0.0137 173.10)",
+          "oklch(38% 0.0137 173.10)",
+          "oklch(49% 0.0137 173.10)",
+          "oklch(61% 0.0137 173.10)",
+          "oklch(72% 0.0137 173.10)",
+          "oklch(84% 0.0137 173.10)",
+          "oklch(95% 0.0137 173.10)"
+        ]
+      },
+      "muted": {
+        "displayName": "Muted",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.0134 153.45)",
+          "oklch(26% 0.0134 153.45)",
+          "oklch(38% 0.0134 153.45)",
+          "oklch(49% 0.0134 153.45)",
+          "oklch(61% 0.0134 153.45)",
+          "oklch(72% 0.0134 153.45)",
+          "oklch(84% 0.0134 153.45)",
+          "oklch(95% 0.0134 153.45)"
+        ]
+      },
+      "canvas": {
+        "displayName": "Canvas",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.0041 121.56)",
+          "oklch(26% 0.0041 121.56)",
+          "oklch(38% 0.0041 121.56)",
+          "oklch(49% 0.0041 121.56)",
+          "oklch(61% 0.0041 121.56)",
+          "oklch(72% 0.0041 121.56)",
+          "oklch(84% 0.0041 121.56)",
+          "oklch(95% 0.0041 121.56)"
+        ]
+      },
+      "surface": {
+        "displayName": "Surface",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.0000 89.88)",
+          "oklch(26% 0.0000 89.88)",
+          "oklch(38% 0.0000 89.88)",
+          "oklch(49% 0.0000 89.88)",
+          "oklch(61% 0.0000 89.88)",
+          "oklch(72% 0.0000 89.88)",
+          "oklch(84% 0.0000 89.88)",
+          "oklch(95% 0.0000 89.88)"
+        ]
+      },
+      "line": {
+        "displayName": "Line",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.0103 131.36)",
+          "oklch(26% 0.0103 131.36)",
+          "oklch(38% 0.0103 131.36)",
+          "oklch(49% 0.0103 131.36)",
+          "oklch(61% 0.0103 131.36)",
+          "oklch(72% 0.0103 131.36)",
+          "oklch(84% 0.0103 131.36)",
+          "oklch(95% 0.0103 131.36)"
+        ]
+      },
+      "focus": {
+        "displayName": "Focus",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.0638 163.48)",
+          "oklch(26% 0.0638 163.48)",
+          "oklch(38% 0.0638 163.48)",
+          "oklch(49% 0.0638 163.48)",
+          "oklch(61% 0.0638 163.48)",
+          "oklch(72% 0.0638 163.48)",
+          "oklch(84% 0.0638 163.48)",
+          "oklch(95% 0.0638 163.48)"
+        ]
+      },
+      "demo-background": {
+        "displayName": "Demo Background",
+        "role": "secondary",
+        "tonalRamp": [
+          "oklch(15% 0.0246 83.42)",
+          "oklch(26% 0.0246 83.42)",
+          "oklch(38% 0.0246 83.42)",
+          "oklch(49% 0.0246 83.42)",
+          "oklch(61% 0.0246 83.42)",
+          "oklch(72% 0.0246 83.42)",
+          "oklch(84% 0.0246 83.42)",
+          "oklch(95% 0.0246 83.42)"
+        ]
+      },
+      "demo-text": {
+        "displayName": "Demo Text",
+        "role": "secondary",
+        "tonalRamp": [
+          "oklch(15% 0.0826 71.83)",
+          "oklch(26% 0.0826 71.83)",
+          "oklch(38% 0.0826 71.83)",
+          "oklch(49% 0.0826 71.83)",
+          "oklch(61% 0.0826 71.83)",
+          "oklch(72% 0.0826 71.83)",
+          "oklch(84% 0.0826 71.83)",
+          "oklch(95% 0.0826 71.83)"
+        ]
+      },
+      "attention-background": {
+        "displayName": "Attention Background",
+        "role": "secondary",
+        "tonalRamp": [
+          "oklch(15% 0.0256 84.59)",
+          "oklch(26% 0.0256 84.59)",
+          "oklch(38% 0.0256 84.59)",
+          "oklch(49% 0.0256 84.59)",
+          "oklch(61% 0.0256 84.59)",
+          "oklch(72% 0.0256 84.59)",
+          "oklch(84% 0.0256 84.59)",
+          "oklch(95% 0.0256 84.59)"
+        ]
+      },
+      "attention-text": {
+        "displayName": "Attention Text",
+        "role": "secondary",
+        "tonalRamp": [
+          "oklch(15% 0.0904 71.80)",
+          "oklch(26% 0.0904 71.80)",
+          "oklch(38% 0.0904 71.80)",
+          "oklch(49% 0.0904 71.80)",
+          "oklch(61% 0.0904 71.80)",
+          "oklch(72% 0.0904 71.80)",
+          "oklch(84% 0.0904 71.80)",
+          "oklch(95% 0.0904 71.80)"
+        ]
+      },
+      "clear-background": {
+        "displayName": "Clear Background",
+        "role": "secondary",
+        "tonalRamp": [
+          "oklch(15% 0.0180 134.92)",
+          "oklch(26% 0.0180 134.92)",
+          "oklch(38% 0.0180 134.92)",
+          "oklch(49% 0.0180 134.92)",
+          "oklch(61% 0.0180 134.92)",
+          "oklch(72% 0.0180 134.92)",
+          "oklch(84% 0.0180 134.92)",
+          "oklch(95% 0.0180 134.92)"
+        ]
+      },
+      "clear-text": {
+        "displayName": "Clear Text",
+        "role": "secondary",
+        "tonalRamp": [
+          "oklch(15% 0.0740 150.94)",
+          "oklch(26% 0.0740 150.94)",
+          "oklch(38% 0.0740 150.94)",
+          "oklch(49% 0.0740 150.94)",
+          "oklch(61% 0.0740 150.94)",
+          "oklch(72% 0.0740 150.94)",
+          "oklch(84% 0.0740 150.94)",
+          "oklch(95% 0.0740 150.94)"
+        ]
+      },
+      "error": {
+        "displayName": "Error",
+        "role": "secondary",
+        "tonalRamp": [
+          "oklch(15% 0.1274 32.43)",
+          "oklch(26% 0.1274 32.43)",
+          "oklch(38% 0.1274 32.43)",
+          "oklch(49% 0.1274 32.43)",
+          "oklch(61% 0.1274 32.43)",
+          "oklch(72% 0.1274 32.43)",
+          "oklch(84% 0.1274 32.43)",
+          "oklch(95% 0.1274 32.43)"
+        ]
+      },
+      "disabled-background": {
+        "displayName": "Disabled Background",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.0170 137.03)",
+          "oklch(26% 0.0170 137.03)",
+          "oklch(38% 0.0170 137.03)",
+          "oklch(49% 0.0170 137.03)",
+          "oklch(61% 0.0170 137.03)",
+          "oklch(72% 0.0170 137.03)",
+          "oklch(84% 0.0170 137.03)",
+          "oklch(95% 0.0170 137.03)"
+        ]
+      },
+      "disabled-text": {
+        "displayName": "Disabled Text",
+        "role": "neutral",
+        "tonalRamp": [
+          "oklch(15% 0.0346 139.11)",
+          "oklch(26% 0.0346 139.11)",
+          "oklch(38% 0.0346 139.11)",
+          "oklch(49% 0.0346 139.11)",
+          "oklch(61% 0.0346 139.11)",
+          "oklch(72% 0.0346 139.11)",
+          "oklch(84% 0.0346 139.11)",
+          "oklch(95% 0.0346 139.11)"
+        ]
+      }
+    },
+    "shadows": [
+      {
+        "name": "selected-segment",
+        "value": "0 1px 3px #263a2412",
+        "purpose": "Selected scenario only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-transition",
+        "value": "150ms ease-out",
+        "purpose": "Button background and upload target state."
+      },
+      {
+        "name": "spinner",
+        "value": "1.3s linear infinite",
+        "purpose": "Processing indicator; disabled for reduced motion."
+      },
+      {
+        "name": "scan",
+        "value": "2.2s cubic-bezier(0.16, 1, 0.3, 1) infinite",
+        "purpose": "Processing scan; disabled for reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide-min",
+        "value": "1600px"
+      },
+      {
+        "name": "compact-max",
+        "value": "1200px"
+      },
+      {
+        "name": "rail-max",
+        "value": "980px"
+      },
+      {
+        "name": "mobile-max",
+        "value": "720px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Standard action with implemented hover, focus, and disabled states.",
+      "html": "<button class=\"ds-button-primary\">Проверить видео</button>",
+      "css": ".ds-button-primary{font-family:\"Manrope Variable\",sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:10px;border:1px solid transparent;border-radius:7px;min-height:43px;padding:11px 16px;font-size:12px;font-weight:650;cursor:pointer;transition:background 150ms ease-out;background:var(--green,#245d4e);color:#fff;}.ds-button-primary:hover:not(:disabled){background:#194736}.ds-button-primary:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}.ds-button-primary:disabled{cursor:not-allowed;background:#dce4d9;color:#5c6b58;}@media(max-width:720px){.ds-button-primary{min-height:46px}}@media(prefers-reduced-motion:reduce){.ds-button-primary{transition:none}}"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Standard action with implemented hover, focus, and disabled states.",
+      "html": "<button class=\"ds-button-secondary\">Проверить видео</button>",
+      "css": ".ds-button-secondary{font-family:\"Manrope Variable\",sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:10px;border:1px solid transparent;border-radius:7px;min-height:43px;padding:11px 16px;font-size:12px;font-weight:650;cursor:pointer;transition:background 150ms ease-out;background:#fff;color:var(--ink,#232c29);border-color:#ced7ca;}.ds-button-secondary:hover:not(:disabled){background:#eff4ec}.ds-button-secondary:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}.ds-button-secondary:disabled{cursor:not-allowed;opacity:.45;}@media(max-width:720px){.ds-button-secondary{min-height:46px}}@media(prefers-reduced-motion:reduce){.ds-button-secondary{transition:none}}"
+    },
+    {
+      "name": "Text button",
+      "kind": "button",
+      "refersTo": "button-text",
+      "description": "Quiet inline action.",
+      "html": "<button class=\"ds-text\">Скачать JSON</button>",
+      "css": ".ds-text{font-family:\"Manrope Variable\",sans-serif;border:0;background:transparent;color:var(--green,#245d4e);padding:3px 0;font-size:10px;font-weight:700;cursor:pointer}.ds-text:hover{text-decoration:underline;text-underline-offset:3px}.ds-text:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}"
+    },
+    {
+      "name": "Icon button",
+      "kind": "button",
+      "refersTo": "button-icon",
+      "description": "Compact icon action using inline SVG.",
+      "html": "<button class=\"ds-icon\" aria-label=\"Удалить видео\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg></button>",
+      "css": ".ds-icon{width:32px;height:32px;border:0;background:none;display:inline-flex;align-items:center;justify-content:center;border-radius:5px;color:#647061;cursor:pointer}.ds-icon:hover{background:#f0f3ee}.ds-icon:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}.ds-icon:disabled{opacity:.4;cursor:not-allowed}"
+    },
+    {
+      "name": "Key field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Grouped key-entry border and focus treatment.",
+      "html": "<label class=\"ds-label\" for=\"ds-key\">Ключ доступа к API</label><div class=\"ds-field\"><input id=\"ds-key\" type=\"password\" placeholder=\"Введите ключ сервиса\" /></div>",
+      "css": ".ds-label{font-family:\"Manrope Variable\",sans-serif;display:block;font-size:11px;font-weight:650;margin-bottom:9px;color:var(--ink,#232c29)}.ds-field{display:flex;border:1px solid #cbd3c9;border-radius:7px;background:#fff;padding-right:6px}.ds-field:focus-within{outline:2px solid #7cae96;outline-offset:2px}.ds-field input{font-family:\"Manrope Variable\",sans-serif;min-width:0;flex:1;border:0;background:transparent;padding:11px 12px;font-size:12px;outline:none;color:var(--ink,#232c29);caret-color:var(--green,#245d4e)}.ds-field input::placeholder{color:#727a71}.ds-field input:disabled{opacity:.65}@media(max-width:720px){.ds-field input{font-size:16px;padding:11px}}"
+    },
+    {
+      "name": "Selected navigation",
+      "kind": "nav",
+      "refersTo": "navigation-selected",
+      "description": "Current destination inside the deep green shell.",
+      "html": "<nav class=\"ds-nav\"><button aria-current=\"page\">Проверка видео</button></nav>",
+      "css": ".ds-nav{background:#173d36;padding:20px}.ds-nav button{font-family:\"Manrope Variable\",sans-serif;width:100%;text-align:left;border:0;background:#31564a;color:#fff;padding:13px 15px;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer}.ds-nav button:hover{background:#3a6052}.ds-nav button:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}"
+    },
+    {
+      "name": "Demo tag",
+      "kind": "chip",
+      "refersTo": "demo-tag",
+      "description": "Noninteractive annotation; written notice remains when tag is hidden in the app.",
+      "html": "<div class=\"ds-demo\"><span class=\"ds-tag\">ДЕМО</span></div>",
+      "css": ".ds-demo{background:#f4ebda;padding:16px;color:#785320}.ds-tag{font-family:\"Manrope Variable\",sans-serif;display:inline-block;border:1px solid #dac5a4;border-radius:4px;padding:4px 6px;font-size:9px;letter-spacing:.06em;font-weight:700}"
+    },
+    {
+      "name": "Work panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Flat bordered work surface.",
+      "html": "<section class=\"ds-panel\"><h2>Результат проверки</h2><p>Ожидание записи</p></section>",
+      "css": ".ds-panel{font-family:\"Manrope Variable\",sans-serif;background:var(--surface,#fff);color:var(--ink,#232c29);border:1px solid var(--line,#e2e6df);border-radius:var(--radius,14px);padding:23px}.ds-panel h2{margin:0;font-size:15px;font-weight:750;letter-spacing:-.02em}.ds-panel p{font-size:11px;color:var(--muted,#69716b);line-height:1.8;margin:10px 0 0}@media(max-width:1200px){.ds-panel{padding:20px}}@media(max-width:720px){.ds-panel{padding:21px}}"
+    },
+    {
+      "name": "Scenario selector",
+      "kind": "custom",
+      "description": "Native radio selection with the only recurring shadow.",
+      "html": "<fieldset class=\"ds-scenarios\"><legend>Тестовый результат</legend><div><label><input type=\"radio\" name=\"ds-scenario\" checked>С событием</label><label><input type=\"radio\" name=\"ds-scenario\">Без событий</label></div></fieldset>",
+      "css": ".ds-scenarios{font-family:\"Manrope Variable\",sans-serif;border:0;padding:0;margin:0}.ds-scenarios legend{font-size:11px;font-weight:650;margin-bottom:9px}.ds-scenarios>div{display:flex;padding:3px;background:#f1f3ee;border-radius:7px;gap:3px}.ds-scenarios label{position:relative;flex:1;text-align:center;font-size:11px;padding:8px;border-radius:5px;color:var(--muted,#69716b);cursor:pointer}.ds-scenarios label:has(input:checked){background:#fff;color:#284f3d;box-shadow:0 1px 3px #263a2412;font-weight:700}.ds-scenarios input{position:absolute;opacity:0;width:100%;height:100%;inset:0;margin:0;cursor:pointer}.ds-scenarios label:has(input:focus-visible){outline:2px solid #7cae96;outline-offset:2px}.ds-scenarios:disabled{opacity:.6}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Calm daytime review desk",
+    "overview": "This describes the implemented Operate scaffold: deep green navigation, warm near-white surroundings, white work panels, and restrained status colors. It is a code-led direction recorded after implementation, not an approved concept seed or image comp.\n\nThe interface is compact and task-focused. Evidence, status, and controls share locally bundled Manrope and consistent Lucide SVG icons. Demo and possible-event notices remain explicit; color supports their written meaning.",
+    "keyCharacteristics": [
+      "Deep green navigation with quiet white work surfaces.",
+      "Compact typography, fine borders, and gently rounded controls.",
+      "Written status labels and actual video evidence."
+    ],
+    "rules": [
+      {
+        "name": "The Written Status Rule",
+        "body": "Pair status color with a written label and the corresponding icon or indicator.",
+        "section": "colors"
+      },
+      {
+        "name": "The Flat Panel Rule",
+        "body": "Separate work panels with surface color and a fine border; reserve the existing shallow shadow for the selected scenario segment.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do preserve explicit demo and human-review language in status treatments.",
+      "Do retain visible keyboard focus and reduced-motion behavior.",
+      "Do use tabular numerals for timestamps and file metadata."
+    ],
+    "donts": [
+      "Don't communicate a verdict through color alone.",
+      "Don't replace actual evidence frames with decorative imagery.",
+      "Don't infer a general display-text style from the smallest metadata captions."
+    ]
+  }
+}

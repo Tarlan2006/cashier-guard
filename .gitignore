@@ -1,0 +1,14 @@
+.DS_Store
+.env
+.venv/
+node_modules/
+dist/
+*.tsbuildinfo
+__pycache__/
+.pytest_cache/
+*.pyc
+backend/storage/
+work/
+.impeccable/review/
+data/videos/
+data/annotations.local.json

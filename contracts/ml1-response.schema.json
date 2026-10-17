@@ -1,0 +1,83 @@
+{
+  "$defs": {
+    "EvidenceFrame": {
+      "properties": {
+        "timestamp_sec": {
+          "minimum": 0,
+          "title": "Timestamp Sec",
+          "type": "number"
+        },
+        "image_base64": {
+          "maxLength": 4000000,
+          "minLength": 4,
+          "title": "Image Base64",
+          "type": "string"
+        }
+      },
+      "required": [
+        "timestamp_sec",
+        "image_base64"
+      ],
+      "title": "EvidenceFrame",
+      "type": "object"
+    },
+    "Observation": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "start_sec": {
+          "minimum": 0,
+          "title": "Start Sec",
+          "type": "number"
+        },
+        "end_sec": {
+          "minimum": 0,
+          "title": "End Sec",
+          "type": "number"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "evidence_frames": {
+          "items": {
+            "$ref": "#/$defs/EvidenceFrame"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Evidence Frames",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "start_sec",
+        "end_sec",
+        "description",
+        "evidence_frames"
+      ],
+      "title": "Observation",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/$defs/Observation"
+      },
+      "title": "Events",
+      "type": "array"
+    }
+  },
+  "title": "Observations",
+  "type": "object"
+}
