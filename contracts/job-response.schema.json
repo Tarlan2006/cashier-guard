@@ -84,6 +84,32 @@
       "type": "object"
     },
     "Violation": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "assessment": {
+                "const": "strong_evidence"
+              }
+            },
+            "required": [
+              "assessment"
+            ]
+          },
+          "then": {
+            "properties": {
+              "assessment_reason": {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "assessment_reason"
+            ]
+          }
+        }
+      ],
       "properties": {
         "type": {
           "maxLength": 8000,
@@ -135,6 +161,38 @@
             }
           ],
           "default": null
+        },
+        "assessment": {
+          "anyOf": [
+            {
+              "enum": [
+                "strong_evidence",
+                "needs_review"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ML2 evidence assessment. Missing/null is legacy: display needs_review without inventing an assessment.",
+          "title": "Assessment"
+        },
+        "assessment_reason": {
+          "anyOf": [
+            {
+              "maxLength": 8000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ML2 explanation of the assessment. Required for strong_evidence; never a confidence percentage.",
+          "title": "Assessment Reason"
         }
       },
       "required": [
@@ -201,6 +259,19 @@
       ],
       "default": null,
       "title": "Duration Sec"
+    },
+    "source_time_offset_sec": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Original container timeline origin. Add to normalized event time for source media timestamps; browsers may rebase their playback timeline. Null for older jobs.",
+      "title": "Source Time Offset Sec"
     },
     "size_bytes": {
       "anyOf": [

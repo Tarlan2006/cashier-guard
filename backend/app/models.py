@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
 from PIL import Image, UnidentifiedImageError
-from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 NonBlank = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=8_000)]
 Identifier = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
@@ -114,17 +114,34 @@ class MatchingRequest(Observations):
 
 
 class Violation(BaseModel):
+    model_config = ConfigDict(json_schema_extra={"allOf": [{
+        "if": {"properties": {"assessment": {"const": "strong_evidence"}}, "required": ["assessment"]},
+        "then": {"required": ["assessment_reason"], "properties": {"assessment_reason": {"type": "string", "minLength": 1, "pattern": r"\S"}}},
+    }]})
     type: NonBlank
     timecode_sec: Seconds
     description: NonBlank
     evidence_frames: list[EvidenceFrame] = Field(min_length=1, max_length=3)
     rule_id: Identifier | None = None
     rule: Rule | None = None
+    assessment: Literal["strong_evidence", "needs_review"] | None = Field(
+        default=None,
+        description="ML2 evidence assessment. Missing/null is legacy: display needs_review without inventing an assessment.",
+    )
+    assessment_reason: NonBlank | None = Field(
+        default=None, description="ML2 explanation of the assessment. Required for strong_evidence; never a confidence percentage.",
+    )
+
+    @model_validator(mode="after")
+    def explained_strong_evidence(self):
+        if self.assessment == "strong_evidence" and self.assessment_reason is None:
+            raise ValueError("strong_evidence requires assessment_reason")
+        return self
 
 
 class AnalysisResult(BaseModel):
     verdict: Literal["violation", "no_violation"]
-    violations: list[Violation] = Field(default_factory=list, max_length=100)
+    violations: list[Violation] = Field(max_length=100)
 
     @model_validator(mode="after")
     def consistent_verdict(self):
@@ -141,6 +158,10 @@ class JobResponse(BaseModel):
     filename: str
     created_at: str
     duration_sec: Seconds | None = None
+    source_time_offset_sec: float | None = Field(
+        default=None, allow_inf_nan=False,
+        description="Original container timeline origin. Add to normalized event time for source media timestamps; browsers may rebase their playback timeline. Null for older jobs.",
+    )
     size_bytes: int | None = Field(default=None, ge=0)
     verdict: Literal["violation", "no_violation"] | None = None
     violations: list[Violation] = Field(default_factory=list)
@@ -151,3 +172,35 @@ class JobResponse(BaseModel):
     deadline_at: str | None = None
     demo_scenario: str | None = None
     completed_at: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def explicit_completed_result(cls, value):
+        if isinstance(value, dict) and value.get("status") == "done" and "violations" not in value:
+            raise ValueError("Completed jobs require an explicit violations list")
+        return value
+
+    @model_validator(mode="after")
+    def consistent_state(self):
+        if self.status == "done":
+            if self.stage != "done" or self.verdict is None or self.error is not None or self.error_code is not None:
+                raise ValueError("Completed jobs must have a result and no error")
+            if (self.verdict == "violation") != bool(self.violations):
+                raise ValueError("verdict must agree with violations")
+            for event in self.violations:
+                if self.duration_sec is not None and (event.timecode_sec >= self.duration_sec or any(
+                    frame.timestamp_sec >= self.duration_sec for frame in event.evidence_frames
+                )):
+                    raise ValueError("Event timestamps must be inside the video")
+                if self.mode == "live" and event.assessment == "strong_evidence" and (
+                    event.rule is None or event.rule.is_demo or event.rule.id.startswith("demo:")
+                    or event.rule_id != event.rule.id
+                ):
+                    raise ValueError("Live strong_evidence requires a checked rule")
+        elif self.verdict is not None or self.violations:
+            raise ValueError("Incomplete jobs cannot contain a verdict or events")
+        elif self.status == "failed" and self.stage != "failed":
+            raise ValueError("Failed jobs require failed stage")
+        elif self.status == "processing" and self.stage in {"done", "failed"}:
+            raise ValueError("Processing jobs require an active stage")
+        return self

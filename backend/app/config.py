@@ -27,6 +27,8 @@ class Settings:
     cleanup_interval: float = field(default_factory=lambda: float(os.getenv("CLEANUP_INTERVAL_SECONDS", "60")))
     max_storage_mb: int = field(default_factory=lambda: int(os.getenv("MAX_STORAGE_MB", "2048")))
     max_concurrent_uploads: int = field(default_factory=lambda: int(os.getenv("MAX_CONCURRENT_UPLOADS", "2")))
+    normalization_workers: int = field(default_factory=lambda: int(os.getenv("NORMALIZATION_WORKERS", "1")))
+    max_normalized_mb: int = field(default_factory=lambda: int(os.getenv("MAX_NORMALIZED_MB", "512")))
 
     def validate(self):
         if not self.api_key or self.api_key == "replace-with-your-own-key":
@@ -37,6 +39,6 @@ class Settings:
             raise RuntimeError("Invalid upload limit or job timeout (must be <= 295 seconds)")
         limits = (self.upload_timeout, self.workers, self.queue_size, self.max_jobs,
                   self.retention_hours, self.cleanup_interval, self.max_storage_mb,
-                  self.max_concurrent_uploads)
+                  self.max_concurrent_uploads, self.normalization_workers, self.max_normalized_mb)
         if any(not math.isfinite(value) or value <= 0 for value in limits):
             raise RuntimeError("Storage, concurrency, retention and upload settings must be positive")

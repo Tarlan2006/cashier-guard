@@ -1,22 +1,19 @@
-# Direction: Cashier Guard review workspace
+# Cashier Guard — user-supplied interface reference
 
-Mode: Operate. User requested a basic working frontend/backend scaffold, not a marketing page.
-Audience: reviewers of cash-desk footage and the hackathon team testing local integrations.
-Code-led implementation; no approved image comp or external brand assets.
+Mode: Operate. Build path: code-led, reproducing the complete JSX reference supplied by the user on 17 October 2026. Reference: `/Users/kuatsaparali/.codex/attachments/ef5f681f-142c-49bb-9d8d-2248260f2774/Вставленный текст.txt`.
 
-FORM provenance: directly derived from the requested basic upload → status → result workflow,
-with two work areas for input and evidence. No randomized concept seed was generated or approved.
-The Impeccable launcher could not run because its engine/cache was unavailable; project context
-was read directly. This is a tooling/process limitation, not a claim of concept approval.
+## Direction contract
 
-Visual world: calm daytime review desk. Deep green navigation, warm near-white work surface,
-restrained amber for demo/possible events, locally bundled Manrope, small consistent Lucide icons.
-Two adjacent work areas: upload and evidence. Mobile stacks upload before results.
+THESIS: Reproduce the reference's light review console and replace the green sidebar identity. Keep Cashier Guard's working upload, analysis, recovery, and evidence behavior.
 
-First viewport: product identity, connection state, task title, unmistakable demo notice,
-upload target with API key and scenario controls, quiet empty evidence region. No invented metrics.
-Signature interaction: selecting an event time jumps the user's own video to that timestamp.
-Processing presents genuine server stages instead of invented percentages.
+OWN-WORLD: Slate-50 canvas, white rounded panels, slate-200 rules, pink-600 primary controls, pink/rose brand icon, compact sans-serif typography, and a dark navy video surface. Red/amber/green retain distinct labelled assessment meanings.
 
-Quality bar: complete functional states, obvious demo truth, readable compact controls, no page overflow,
-visible keyboard focus, reduced-motion support, no remote fonts/assets, actual frames only.
+STORY: Choose a local video, inspect its preview, enter the API key, and request real analysis when available. Review actual server events and frames. Navigate to the current result's sources, exact JSON response, or the implemented processing architecture.
+
+FIRST VIEWPORT: White sticky horizontal brand/navigation header, aligned breadcrumb, compact task heading and upload toolbar, truthful availability/assessment banner, then a 7:5 player/evidence grid. Mobile stacks the same work areas; the navigation remains usable without page overflow.
+
+FORM: User-pinned complete interface code is the visual authority; no alternative direction is being invented. The source's demo cases, fabricated legal claims, synthetic CCTV drawing, confidence numbers, and timed simulation are excluded by the user's earlier functional constraints. No health indicator or demo launcher returns.
+
+Signature interaction: an event time seeks the user's actual video and opens genuine returned evidence in the keyboard-accessible frame dialog. Motion is limited to existing processing indicators, short control feedback, and reduced-motion-aware scrolling.
+
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance

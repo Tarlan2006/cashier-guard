@@ -8,10 +8,12 @@ from starlette.responses import JSONResponse
 
 
 class UploadBudgetMiddleware:
-    def __init__(self, app, settings):
+    def __init__(self, app, settings, reserve_upload=None, release_upload=None):
         self.app = app
         self.settings = settings
         self.inflight = 0
+        self.reserve_upload = reserve_upload
+        self.release_upload = release_upload
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http" or scope["path"] != "/api/v1/analyze" or scope["method"] != "POST":
@@ -56,6 +58,7 @@ class UploadBudgetMiddleware:
         if declared > limit:
             return await JSONResponse({"detail": "Превышен допустимый размер загрузки.", "error_code": "UPLOAD_TOO_LARGE"}, 413)(scope, receive, send)
         received = 0
+        reservation_token = object()
         failure = None
         response_started = False
         upload_budget = min(config.upload_timeout, config.timeout)
@@ -75,9 +78,13 @@ class UploadBudgetMiddleware:
                 failure = (400, "UPLOAD_INTERRUPTED", "Загрузка прервана. Выберите файл и повторите попытку.")
                 raise MultiPartException(failure[2])
             if message["type"] == "http.request":
-                received += len(message.get("body", b""))
+                chunk_size = len(message.get("body", b""))
+                received += chunk_size
                 if received > limit:
                     failure = (413, "UPLOAD_TOO_LARGE", "Превышен допустимый размер загрузки.")
+                    raise MultiPartException(failure[2])
+                if self.reserve_upload is not None and not self.reserve_upload(reservation_token, chunk_size):
+                    failure = (503, "STORAGE_FULL", "На сервере недостаточно места для загрузки. Повторите позже.")
                     raise MultiPartException(failure[2])
             return message
 
@@ -99,3 +106,5 @@ class UploadBudgetMiddleware:
             await self.app(scope, limited_receive, guarded_send)
         finally:
             self.inflight -= 1
+            if self.release_upload is not None:
+                self.release_upload(reservation_token)

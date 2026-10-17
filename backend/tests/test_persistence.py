@@ -2,14 +2,15 @@ import asyncio
 import json
 import time
 from datetime import datetime
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app import pipeline
+from app import main, media, pipeline
 from app.config import Settings
 from app.main import create_app
-from app.models import AnalysisResult
+from app.models import AnalysisResult, JobResponse
 
 KEY = "test-private-key"
 HEADERS = {"X-API-Key": KEY}
@@ -20,8 +21,12 @@ def config_for(tmp_path, **kwargs):
 
 
 def fake_pipeline(monkeypatch, delay=0):
-    async def probe(path):
-        return 12.5
+    async def probe(path, **kwargs):
+        return SimpleNamespace(duration_sec=12.5, start_time=0.0)
+
+    async def normalize(source, output, info, **kwargs):
+        output.write_bytes(b"normalized mp4")
+        return info
 
     async def analyze(path, duration, settings, scenario, on_stage):
         on_stage("analyzing")
@@ -29,7 +34,8 @@ def fake_pipeline(monkeypatch, delay=0):
         on_stage("matching")
         return AnalysisResult(verdict="no_violation", violations=[])
 
-    monkeypatch.setattr(pipeline, "probe", probe)
+    monkeypatch.setattr(media, "inspect_video", probe)
+    monkeypatch.setattr(media, "normalize_video", normalize)
     monkeypatch.setattr(pipeline, "analyze", analyze)
 
 
@@ -62,6 +68,28 @@ def test_done_result_survives_new_app(tmp_path, monkeypatch):
         assert restored["status"] == "done"
         assert restored["size_bytes"] == len(b"fake video")
         assert {"upload", "queue", "preparing", "analyzing", "matching", "total"} <= restored["timings_sec"].keys()
+
+
+@pytest.mark.parametrize("offset", [5.0, -0.5])
+def test_source_playback_offset_survives_reload_and_allows_legacy_results(tmp_path, monkeypatch, offset):
+    fake_pipeline(monkeypatch)
+    async def probe(path, **kwargs):
+        return SimpleNamespace(duration_sec=12.5, start_time=offset)
+    monkeypatch.setattr(media, "inspect_video", probe)
+    config = config_for(tmp_path)
+    with TestClient(create_app(config)) as first:
+        job_id = submit(first)
+        original = wait(first, job_id)
+        assert original["status"] == "done"
+        assert original["source_time_offset_sec"] == offset
+    with TestClient(create_app(config)) as restarted:
+        restored = restarted.get(f"/api/v1/jobs/{job_id}", headers=HEADERS).json()
+        assert restored == original
+    legacy = {key: value for key, value in original.items() if key != "source_time_offset_sec"}
+    assert JobResponse.model_validate(legacy).source_time_offset_sec is None
+    for invalid in [float("nan"), float("inf"), float("-inf")]:
+        with pytest.raises(ValueError):
+            JobResponse.model_validate({**original, "source_time_offset_sec": invalid})
 
 
 def test_restart_marks_unfinished_explicit_failure(tmp_path, monkeypatch):
@@ -239,6 +267,59 @@ def test_partial_multipart_timeout_closes_spooled_file(tmp_path, monkeypatch):
         ], [0, 0.1])
         assert status == 408
         assert spools and all(spool.closed for spool in spools)
+
+
+def test_partial_multipart_disk_refusal_closes_spool_and_releases_reservation(tmp_path, monkeypatch):
+    from starlette import formparsers
+    original = formparsers.SpooledTemporaryFile
+    spools = []
+    checks = 0
+    def tracked_spool(*args, **kwargs):
+        spool = original(*args, **kwargs)
+        spools.append(spool)
+        return spool
+    def disk_usage(path):
+        nonlocal checks
+        checks += 1
+        # First chunk has space on both storage and temp filesystems; next does not.
+        return SimpleNamespace(free=8 * 1024 * 1024 if checks <= 2 else 0)
+    monkeypatch.setattr(formparsers, "SpooledTemporaryFile", tracked_spool)
+    monkeypatch.setattr(main.shutil, "disk_usage", disk_usage)
+    config = config_for(tmp_path, max_upload_mb=2)
+    head = b'--test\r\nContent-Disposition: form-data; name="file"; filename="clip.mov"\r\n\r\n'
+    with TestClient(create_app(config)) as client:
+        status, result = client.portal.call(asgi_request, client.app, [
+            {"type": "http.request", "body": head + b"x" * (1024 * 1024 + 1), "more_body": True},
+            {"type": "http.request", "body": b"\r\n--test--\r\n", "more_body": False},
+        ])
+        assert status == 503 and result["error_code"] == "STORAGE_FULL"
+        assert spools and all(spool.closed for spool in spools)
+        assert not client.app.state.upload_reservations
+        assert not list(config.storage.glob("*.upload"))
+
+
+def test_simultaneous_parsers_share_physical_disk_reservations(tmp_path, monkeypatch):
+    fake_pipeline(monkeypatch)
+    monkeypatch.setattr(main.shutil, "disk_usage", lambda path: SimpleNamespace(free=400 * 1024))
+    head = b'--test\r\nContent-Disposition: form-data; name="file"; filename="clip.mov"\r\n\r\n'
+    tail = b"\r\n--test--\r\n"
+    config = config_for(tmp_path, max_upload_mb=1, max_concurrent_uploads=2)
+    with TestClient(create_app(config)) as client:
+        async def concurrent_bodies():
+            first = asyncio.create_task(asgi_request(client.app, [
+                {"type": "http.request", "body": head + b"a" * (150 * 1024), "more_body": True},
+                {"type": "http.request", "body": tail, "more_body": False},
+            ], [0, 0.08]))
+            await asyncio.sleep(0.02)
+            second = await asgi_request(client.app, [
+                {"type": "http.request", "body": head + b"b" * (250 * 1024) + tail, "more_body": False},
+            ])
+            return await first, second
+        first, second = client.portal.call(concurrent_bodies)
+        assert first[0] == 202
+        assert second[0] == 503 and second[1]["error_code"] == "STORAGE_FULL"
+        assert wait(client, first[1]["job_id"])["status"] == "done"
+        assert not client.app.state.upload_reservations
 
 
 def test_chunked_oversized_body_and_unauthorized_never_accept(tmp_path, monkeypatch):

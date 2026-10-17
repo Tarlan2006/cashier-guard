@@ -114,7 +114,7 @@ describe("current review recovery", () => {
       .mockResolvedValueOnce(processing("new-job"));
     const first = renderHook(() => useReview("valid-key"));
     await act(async () => {
-      await first.result.current.submit(video, "multiple_events");
+      await first.result.current.submit(video);
     });
     expect(
       JSON.parse(sessionStorage.getItem(ACTIVE_JOB_KEY) ?? "null"),
@@ -122,7 +122,7 @@ describe("current review recovery", () => {
     expect(requestMock.mock.calls[0][2]).toMatchObject({ method: "POST" });
     const form = requestMock.mock.calls[0][2]?.body as FormData;
     expect(form.get("file")).toBe(video);
-    expect(form.get("demo_scenario")).toBe("multiple_events");
+    expect(form.get("demo_scenario")).toBeNull();
     first.unmount();
 
     requestMock.mockResolvedValueOnce(completed("new-job"));
@@ -205,7 +205,7 @@ describe("current review recovery", () => {
       .mockResolvedValueOnce({ job_id: "replacement-job" })
       .mockResolvedValueOnce(completed("replacement-job"));
     await act(async () => {
-      await result.current.submit(video, "no_violation");
+      await result.current.submit(video);
     });
     expect(result.current.job?.job_id).toBe("replacement-job");
     expect(result.current.phase).toBe("done");
@@ -276,6 +276,74 @@ describe("current review recovery", () => {
     expect(result.current.phase).toBe("interrupted");
     expect(result.current.job).toBeNull();
   });
+
+  it.each([undefined, "needs_review", "strong_evidence"] as const)(
+    "restores a saved result with assessment %s and retains its exact export fields",
+    async (assessment) => {
+      saveJob();
+      const response: Job = {
+        ...completed(),
+        verdict: "violation",
+        violations: [
+          {
+            type: "Демо-событие",
+            description: "Тест восстановления ответа.",
+            timecode_sec: 3.125,
+            evidence_frames: [
+              { timestamp_sec: 3.125, image_base64: "fixture" },
+            ],
+            rule: null,
+            ...(assessment === undefined
+              ? {}
+              : {
+                  assessment,
+                  assessment_reason: "Демо: объяснение сохранённого уровня.",
+                }),
+          },
+        ],
+      };
+      requestMock.mockResolvedValueOnce(response);
+      const { result } = renderHook(() => useReview("valid-key"));
+      await flush();
+      expect(result.current.phase).toBe("done");
+      expect(result.current.issue).toBeNull();
+      expect(JSON.stringify(result.current.job)).toBe(JSON.stringify(response));
+      if (assessment === undefined)
+        expect(result.current.job?.violations[0]).not.toHaveProperty(
+          "assessment",
+        );
+    },
+  );
+
+  it.each([
+    { assessment: "unknown", assessment_reason: "Unsupported level" },
+    { assessment: "strong_evidence", assessment_reason: null },
+  ])(
+    "keeps a restored malformed assessment neutral and recoverable: %j",
+    async (metadata) => {
+      saveJob();
+      requestMock.mockResolvedValueOnce({
+        ...completed(),
+        verdict: "violation",
+        violations: [
+          {
+            type: "Corrupt event",
+            description: "Malformed assessment metadata",
+            timecode_sec: 1,
+            evidence_frames: [{ timestamp_sec: 1, image_base64: "fixture" }],
+            rule: null,
+            ...metadata,
+          },
+        ],
+      });
+      const { result } = renderHook(() => useReview("valid-key"));
+      await flush();
+      expect(result.current.phase).toBe("interrupted");
+      expect(result.current.issue?.kind).toBe("protocol");
+      expect(result.current.job).toBeNull();
+      expect(result.current.canResume).toBe(true);
+    },
+  );
 });
 
 describe("submission isolation and cancellation", () => {
@@ -287,8 +355,8 @@ describe("submission isolation and cancellation", () => {
     const { result } = renderHook(() => useReview("valid-key"));
     let first!: Promise<void>;
     act(() => {
-      first = result.current.submit(video, "violation");
-      void result.current.submit(video, "violation");
+      first = result.current.submit(video);
+      void result.current.submit(video);
     });
     expect(requestMock).toHaveBeenCalledTimes(1);
     expect(result.current.busy).toBe(true);
@@ -308,7 +376,7 @@ describe("submission isolation and cancellation", () => {
     );
     const { result } = renderHook(() => useReview("valid-key"));
     await act(async () => {
-      await result.current.submit(video, "violation");
+      await result.current.submit(video);
     });
     expect(result.current.phase).toBe("interrupted");
     expect(result.current.busy).toBe(false);
@@ -339,14 +407,14 @@ describe("submission isolation and cancellation", () => {
     const { result } = renderHook(() => useReview("valid-key"));
     let first!: Promise<void>;
     act(() => {
-      first = result.current.submit(video, "violation");
+      first = result.current.submit(video);
     });
     act(() => result.current.reset());
     requestMock
       .mockResolvedValueOnce({ job_id: "new-job" })
       .mockResolvedValueOnce(completed("new-job"));
     await act(async () => {
-      await result.current.submit(video, "no_violation");
+      await result.current.submit(video);
     });
     expect(result.current.job?.job_id).toBe("new-job");
     await act(async () => {
@@ -383,7 +451,7 @@ describe("submission isolation and cancellation", () => {
     const { result, unmount } = renderHook(() => useReview("valid-key"));
     let submission!: Promise<void>;
     act(() => {
-      submission = result.current.submit(video, "violation");
+      submission = result.current.submit(video);
     });
     const options = requestMock.mock.calls[0][2] as RequestOptions;
     unmount();

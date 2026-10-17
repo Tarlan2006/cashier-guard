@@ -8,6 +8,9 @@ import {
 import { AlertCircle, FileVideo2, Play, X } from "lucide-react";
 import { scrollBehavior, timecode } from "../api";
 import type { Violation } from "../api";
+import { resolveVideoTimeline } from "../videoTimeline";
+import { getEventAssessment } from "../assessment";
+import { AssessmentIcon } from "./AssessmentBadge";
 
 export type VideoHandle = {
   seek: (seconds: number) => void;
@@ -17,50 +20,75 @@ type Props = {
   file: File;
   events: Violation[];
   activeEvent: number;
+  normalizedDuration?: number | null;
+  sourceTimeOffset?: number | null;
   onSelect: (index: number) => void;
   onRemove: () => void;
+  onPreviewAvailabilityChange: (available: boolean) => void;
   disabled: boolean;
 };
 
 export const VideoReview = forwardRef<VideoHandle, Props>(function VideoReview(
-  { file, events, activeEvent, onSelect, onRemove, disabled },
+  {
+    file,
+    events,
+    activeEvent,
+    normalizedDuration,
+    sourceTimeOffset,
+    onSelect,
+    onRemove,
+    onPreviewAvailabilityChange,
+    disabled,
+  },
   ref,
 ) {
   const video = useRef<HTMLVideoElement>(null);
   const clipEnd = useRef<number | null>(null);
   const [url, setUrl] = useState("");
-  const [duration, setDuration] = useState(0);
-  const [position, setPosition] = useState(0);
+  const [browserDuration, setBrowserDuration] = useState(0);
+  const [nativePosition, setNativePosition] = useState(0);
   const [unplayable, setUnplayable] = useState(false);
   const [clipLabel, setClipLabel] = useState("");
+  const timeline = resolveVideoTimeline(
+    browserDuration,
+    normalizedDuration,
+    sourceTimeOffset,
+  );
+  const duration = timeline.duration;
+  const position = Math.max(0, nativePosition - timeline.offset);
+  useEffect(() => {
+    onPreviewAvailabilityChange(!unplayable && timeline.aligned);
+  }, [unplayable, timeline.aligned, onPreviewAvailabilityChange]);
   useEffect(() => {
     const objectUrl = URL.createObjectURL(file);
     setUrl(objectUrl);
-    setDuration(0);
-    setPosition(0);
+    setBrowserDuration(0);
+    setNativePosition(0);
     setUnplayable(false);
+    onPreviewAvailabilityChange(false);
     setClipLabel("");
     clipEnd.current = null;
     return () => URL.revokeObjectURL(objectUrl);
-  }, [file]);
+  }, [file, onPreviewAvailabilityChange]);
   function seek(seconds: number) {
-    if (!video.current || unplayable || !duration) return;
+    if (!video.current || unplayable || !duration || !timeline.aligned) return;
     video.current.pause();
     clipEnd.current = null;
     setClipLabel("");
-    video.current.currentTime = Math.max(0, Math.min(seconds, duration));
-    setPosition(video.current.currentTime);
+    video.current.currentTime =
+      Math.max(0, Math.min(seconds, duration)) + timeline.offset;
+    setNativePosition(video.current.currentTime);
     video.current.scrollIntoView({
       behavior: scrollBehavior(),
       block: "center",
     });
   }
   function playContext(seconds: number) {
-    if (!video.current || unplayable || !duration) return;
+    if (!video.current || unplayable || !duration || !timeline.aligned) return;
     const start = Math.max(0, seconds - 3),
       end = Math.min(duration, seconds + 3);
-    clipEnd.current = end;
-    video.current.currentTime = start;
+    clipEnd.current = end + timeline.offset;
+    video.current.currentTime = start + timeline.offset;
     setClipLabel(`${timecode(start)} — ${timecode(end)}`);
     video.current.scrollIntoView({
       behavior: scrollBehavior(),
@@ -70,10 +98,19 @@ export const VideoReview = forwardRef<VideoHandle, Props>(function VideoReview(
       .play()
       .catch(() => setClipLabel("Нажмите воспроизведение в плеере."));
   }
+  function updateMediaTimeline(element: HTMLVideoElement) {
+    setBrowserDuration(
+      Number.isFinite(element.duration) ? element.duration : 0,
+    );
+    setNativePosition(element.currentTime);
+  }
   useImperativeHandle(ref, () => ({ seek, playContext }));
   return (
     <div className="selected-file">
-      <div className="video-wrap">
+      <div
+        className="video-wrap"
+        style={unplayable ? { display: "none" } : undefined}
+      >
         <video
           ref={video}
           src={url || undefined}
@@ -82,17 +119,15 @@ export const VideoReview = forwardRef<VideoHandle, Props>(function VideoReview(
           playsInline
           preload="metadata"
           aria-label="Предпросмотр загруженного видео"
-          onLoadedMetadata={(e) =>
-            setDuration(
-              Number.isFinite(e.currentTarget.duration)
-                ? e.currentTarget.duration
-                : 0,
-            )
-          }
-          onError={() => setUnplayable(true)}
+          onLoadedMetadata={(e) => updateMediaTimeline(e.currentTarget)}
+          onDurationChange={(e) => updateMediaTimeline(e.currentTarget)}
+          onError={() => {
+            setUnplayable(true);
+            onPreviewAvailabilityChange(false);
+          }}
           onTimeUpdate={(e) => {
             const current = e.currentTarget.currentTime;
-            setPosition(current);
+            setNativePosition(current);
             if (clipEnd.current !== null && current >= clipEnd.current) {
               e.currentTarget.pause();
               clipEnd.current = null;
@@ -121,11 +156,21 @@ export const VideoReview = forwardRef<VideoHandle, Props>(function VideoReview(
       {unplayable && (
         <p className="video-hint">
           <AlertCircle size={15} />
-          Браузер не воспроизводит этот кодек. Проверка файла и просмотр кадров
-          остаются доступны.
+          Браузер не смог открыть предпросмотр: возможно, он не поддерживает
+          контейнер или кодек записи. Это бывает с AVI, MKV и некоторыми MOV.
+          Файл можно отправить на анализ — сервер проверит его и преобразует в
+          MP4. Кадры результата останутся доступны.
         </p>
       )}
-      {duration > 0 && !unplayable && (
+      {browserDuration > 0 && !unplayable && !timeline.aligned && (
+        <p className="video-hint">
+          <AlertCircle size={15} />
+          Временная шкала браузера отличается от обработанного видео. Переходы к
+          событиям недоступны: нельзя подтвердить точное соответствие времени.
+          Обычный просмотр и кадры результата доступны.
+        </p>
+      )}
+      {duration > 0 && !unplayable && timeline.aligned && (
         <div className="video-timeline">
           <div className="timeline-caption">
             <label htmlFor="video-position">Позиция в видео</label>
@@ -154,14 +199,20 @@ export const VideoReview = forwardRef<VideoHandle, Props>(function VideoReview(
                     style={{
                       left: `${Math.min(100, (event.timecode_sec / duration) * 100)}%`,
                     }}
-                    className={index === activeEvent ? "active" : ""}
-                    aria-label={`Событие ${index + 1}, ${timecode(event.timecode_sec)}`}
-                    title={`${index + 1} · ${timecode(event.timecode_sec)}`}
+                    className={`assessment-${getEventAssessment(event).level} ${index === activeEvent ? "active" : ""}`}
+                    data-assessment={getEventAssessment(event).level}
+                    aria-pressed={index === activeEvent}
+                    aria-label={`Событие ${index + 1}, ${timecode(event.timecode_sec)}, ${getEventAssessment(event).label}`}
+                    title={`${index + 1} · ${timecode(event.timecode_sec)} · ${getEventAssessment(event).label}`}
                     onClick={() => {
                       onSelect(index);
                       seek(event.timecode_sec);
                     }}
                   >
+                    <AssessmentIcon
+                      level={getEventAssessment(event).level}
+                      size={14}
+                    />
                     {index + 1}
                   </button>
                 ))}
@@ -170,13 +221,22 @@ export const VideoReview = forwardRef<VideoHandle, Props>(function VideoReview(
                 {events.map((event, index) => (
                   <button
                     key={index}
+                    className={`assessment-${getEventAssessment(event).level}`}
+                    data-assessment={getEventAssessment(event).level}
                     aria-pressed={index === activeEvent}
                     onClick={() => {
                       onSelect(index);
                       seek(event.timecode_sec);
                     }}
                   >
-                    {index + 1} · {timecode(event.timecode_sec)}
+                    <AssessmentIcon
+                      level={getEventAssessment(event).level}
+                      size={16}
+                    />
+                    <span>
+                      {index + 1} · {timecode(event.timecode_sec)} ·{" "}
+                      {getEventAssessment(event).label}
+                    </span>
                   </button>
                 ))}
               </div>

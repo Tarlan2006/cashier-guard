@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+from types import SimpleNamespace
 from io import BytesIO
 
 import httpx
@@ -53,6 +54,8 @@ def test_live_adapter_validates_and_uses_trusted_catalog(tmp_path, monkeypatch, 
         seen.append(request.url.path)
         if request.url.path == "/analyze":
             assert b'name="file"' in request.read()
+            assert b'filename="video.mp4"' in request.read()
+            assert b'Content-Type: video/mp4' in request.read()
             return httpx.Response(200, json=ML1)
         payload = json.loads(request.read())
         assert payload["rules"] == [RULE]
@@ -189,8 +192,11 @@ def test_demo_scenarios_use_uploaded_frames(tmp_path, monkeypatch, scenario, cou
     async def fake_frame(path, timestamp):
         captured.append((path, timestamp))
         return EvidenceFrame(**{**FRAME, "timestamp_sec": timestamp})
+    async def fake_inspect(path):
+        return SimpleNamespace(video_start_time=0)
     monkeypatch.setattr(pipeline.asyncio, "sleep", sleep)
     monkeypatch.setattr(pipeline, "frame_at", fake_frame)
+    monkeypatch.setattr(pipeline, "inspect_video", fake_inspect)
     path = tmp_path / "synthetic.mov"
     result = asyncio.run(analyze(path, 12.345, Settings(api_key="test", mode="demo"), scenario, lambda _: None))
     assert len(result.violations) == count

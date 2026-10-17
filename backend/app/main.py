@@ -1,6 +1,8 @@
 import asyncio
 import hmac
 import logging
+import shutil
+import tempfile
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -13,7 +15,7 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import pipeline
+from . import media, pipeline
 from .config import ROOT, Settings
 from .middleware import UploadBudgetMiddleware
 from .models import JobResponse
@@ -39,6 +41,10 @@ class RunningJob:
     work_task: asyncio.Task | None = None
     timer: asyncio.Task | None = None
 
+    @property
+    def normalized_path(self) -> Path:
+        return self.path.with_suffix(".normalized.mp4")
+
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     config = settings or Settings()
@@ -46,11 +52,50 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Bounded by admitted jobs; these failure snapshots never contain result frames.
     unsaved_failures: dict[str, JobResponse] = {}
     pending_deletions: set[Path] = set()
+    # Reserve bytes not yet written by FFmpeg so uploads/results cannot consume them.
+    normalization_reservations: dict[Path, int] = {}
+    upload_reservations: dict[object, int] = {}
+    normalization_slots = asyncio.Semaphore(config.normalization_workers)
     queue: asyncio.Queue[str] = asyncio.Queue(maxsize=config.queue_size)
     store: JobStore | None = None
 
     def storage_bytes() -> int:
         return sum(path.stat().st_size for path in config.storage.iterdir() if path.is_file())
+
+    def reserved_bytes() -> int:
+        return sum(max(0, limit - (path.stat().st_size if path.exists() else 0))
+                   for path, limit in normalization_reservations.items())
+
+    def metadata_headroom() -> int:
+        database = config.storage / "jobs.sqlite3"
+        # SQLite may need a rollback journal while FFmpeg is still writing.
+        # Keep space for that journal plus small status/index page updates.
+        return (database.stat().st_size if database.exists() else 0) + 64 * 1024
+
+    def physical_available_bytes() -> int:
+        # The parser may spool outside STORAGE_DIR. Charge received bytes before
+        # it can write them; double charging already-spooled bytes is conservative.
+        free = min(shutil.disk_usage(config.storage).free,
+                   shutil.disk_usage(tempfile.gettempdir()).free)
+        return max(0, free - reserved_bytes()
+                   - sum(upload_reservations.values()) - metadata_headroom())
+
+    def available_bytes() -> int:
+        return max(0, min(config.max_storage_mb * 1024 * 1024 - storage_bytes()
+                          - reserved_bytes() - metadata_headroom(), physical_available_bytes()))
+
+    def reserve_upload(token: object, size: int) -> bool:
+        try:
+            available = physical_available_bytes()
+        except OSError:
+            return False
+        if size > available:
+            return False
+        upload_reservations[token] = upload_reservations.get(token, 0) + size
+        return True
+
+    def release_upload(token: object):
+        upload_reservations.pop(token, None)
 
     def rollback_after_write_error():
         try:
@@ -75,6 +120,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             pending_deletions.add(path)
             logger.error("Source cleanup failed kind=%s", type(error).__name__)
 
+    def delete_inputs(record: RunningJob):
+        delete_source(record.path)
+        delete_source(record.normalized_path)
+        normalization_reservations.pop(record.normalized_path, None)
+
     def cleanup():
         # Keep a bounded tombstone until the stale processing row can be replaced.
         # Expired tombstones return 404 without resurrecting that stale row.
@@ -88,10 +138,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             logger.error("Result expiry cleanup failed kind=%s", type(error).__name__)
         for path in list(pending_deletions):
             delete_source(path)
-        # Active originals are removed on every terminal state; only stale orphans use TTL.
+        # Active inputs are removed on every terminal state; only stale orphans use TTL.
         cutoff = time.time() - config.retention_hours * 3600
-        for path in config.storage.glob("*.upload"):
-            if path.stem not in active and path.stat().st_mtime < cutoff:
+        protected = {path for record in active.values() for path in (record.path, record.normalized_path)}
+        for path in [*config.storage.glob("*.upload"), *config.storage.glob("*.normalized.mp4")]:
+            if path not in protected and path.stat().st_mtime < cutoff:
                 delete_source(path)
 
     def set_stage(record: RunningJob, stage: str):
@@ -108,7 +159,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # Persist a separate snapshot before changing the live record's status.
         job = record.job.model_copy(deep=True)
         if result is not None:
-            if storage_bytes() + len(result.model_dump_json().encode()) > config.max_storage_mb * 1024 * 1024:
+            # A new payload can grow both the database and its transaction journal.
+            if 3 * len(result.model_dump_json().encode()) > available_bytes():
                 code, error = "STORAGE_FULL", "На сервере закончилось место для результата. Повторите позже или обратитесь к администратору."
             else:
                 job.verdict, job.violations = result.verdict, result.violations
@@ -134,7 +186,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     unsaved_failures[job.job_id] = job
             record.job = job
         finally:
-            delete_source(record.path)
+            delete_inputs(record)
             active.pop(job.job_id, None)
             if record.timer and record.timer is not asyncio.current_task():
                 record.timer.cancel()
@@ -142,17 +194,41 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def expire(record: RunningJob):
         await asyncio.sleep(max(0, record.deadline - time.monotonic()))
         if record.job.status == "processing":
-            try:
-                finish(record, "TIMEOUT", "Истекло общее время проверки, включая загрузку и очередь. Попробуйте более короткую запись или повторите позже.")
-            finally:
-                if record.work_task:
-                    record.work_task.cancel()
+            if record.work_task:
+                record.work_task.cancel()
+                # FFmpeg cancellation kills and reaps its child before files are removed.
+                await asyncio.gather(record.work_task, return_exceptions=True)
+            finish(record, "TIMEOUT", "Истекло общее время проверки, включая загрузку, очередь и преобразование. Попробуйте более короткую запись или повторите позже.")
 
     async def process(record: RunningJob):
+        def remaining_budget() -> float:
+            remaining = record.deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError
+            return remaining
+
         try:
             set_stage(record, "preparing")
-            record.job.duration_sec = await pipeline.probe(record.path)
-            result = await pipeline.analyze(record.path, record.job.duration_sec, config, record.scenario, lambda stage: set_stage(record, stage))
+            info = await media.inspect_video(record.path, timeout=min(20, remaining_budget()))
+            record.job.duration_sec = info.duration_sec
+            record.job.source_time_offset_sec = info.start_time
+            # Waiting for a conversion slot consumes the same deadline as upload and ML.
+            async with normalization_slots:
+                remaining_budget()
+                capacity = min(config.max_normalized_mb * 1024 * 1024, available_bytes())
+                if capacity <= 0:
+                    finish(record, "STORAGE_FULL", "На сервере недостаточно места для преобразования видео. Повторите позже.")
+                    return
+                normalization_reservations[record.normalized_path] = capacity
+                try:
+                    normalized = await media.normalize_video(
+                        record.path, record.normalized_path, info,
+                        timeout=remaining_budget(), max_bytes=capacity,
+                    )
+                finally:
+                    normalization_reservations.pop(record.normalized_path, None)
+            record.job.duration_sec = normalized.duration_sec
+            result = await pipeline.analyze(record.normalized_path, record.job.duration_sec, config, record.scenario, lambda stage: set_stage(record, stage))
             # Also guard synchronous work that returns after its allotted deadline.
             if time.monotonic() >= record.deadline:
                 raise TimeoutError
@@ -168,12 +244,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             message = getattr(error, "message", None)
             if not message:
                 # Never expose validation exceptions: they may contain entire base64 frames.
-                message = "Не удалось прочитать видео. Загрузите корректный MOV или MP4." if record.job.stage == "preparing" else "ML-модуль вернул некорректный ответ. Проверьте контракт интеграции."
+                message = "Не удалось прочитать или преобразовать видео. Загрузите корректный MOV, MP4, AVI, MKV или WEBM." if record.job.stage == "preparing" else "ML-модуль вернул некорректный ответ. Проверьте контракт интеграции."
             finish(record, code, message)
         except Exception as error:
             # No tracebacks or exception messages: third-party errors may contain secrets/media.
             logger.error("Video job failed id=%s kind=%s", record.job.job_id, type(error).__name__)
             finish(record, "PROCESSING_FAILED", "Не удалось завершить обработку. Проверьте доступность ML-модулей и повторите попытку.")
+        finally:
+            # Covers explicit cancellation and shutdown after the media child has stopped.
+            delete_inputs(record)
 
     async def worker():
         while True:
@@ -210,6 +289,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.cleanup = cleanup
         app.state.active = active
         app.state.unsaved_failures = unsaved_failures
+        app.state.normalization_reservations = normalization_reservations
+        app.state.upload_reservations = upload_reservations
         # No input survives restart: explicitly fail pending work and preserve its identifier.
         now = time.time()
         for job in store.unfinished():
@@ -221,8 +302,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             job.expires_at = iso(now + config.retention_hours * 3600)
             job.timings_sec["total"] = round(max(0, now - datetime.fromisoformat(job.created_at).timestamp()), 3)
             store.save(job)
-        for path in config.storage.glob("*.upload"):
-            path.unlink(missing_ok=True)
+        for path in [*config.storage.glob("*.upload"), *config.storage.glob("*.normalized.mp4")]:
+            delete_source(path)
         cleanup()
         workers = [asyncio.create_task(worker()) for _ in range(config.workers)]
         janitor = asyncio.create_task(cleanup_loop())
@@ -237,12 +318,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             for task in [janitor, *workers]:
                 task.cancel()
             await asyncio.gather(janitor, *workers, *timers, return_exceptions=True)
-            for path in config.storage.glob("*.upload"):
-                path.unlink(missing_ok=True)
+            for path in [*config.storage.glob("*.upload"), *config.storage.glob("*.normalized.mp4")]:
+                delete_source(path)
             store.close()
 
     app = FastAPI(title="Cashier Guard API", version="0.2.0", lifespan=lifespan)
-    app.add_middleware(UploadBudgetMiddleware, settings=config)
+    app.add_middleware(UploadBudgetMiddleware, settings=config,
+                       reserve_upload=reserve_upload, release_upload=release_upload)
 
     @app.exception_handler(HTTPException)
     async def request_error(request: Request, error: HTTPException):
@@ -272,8 +354,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         filename = Path(file.filename or "video.mov").name
         path = None
         try:
-            if Path(filename).suffix.lower() not in {".mov", ".mp4"}:
-                raise HTTPException(415, "Поддерживаются файлы MOV и MP4.")
+            if Path(filename).suffix.lower() not in {".mov", ".mp4", ".avi", ".mkv", ".webm"}:
+                raise HTTPException(415, "Поддерживаются файлы MOV, MP4, AVI, MKV и WEBM.")
             if demo_scenario not in pipeline.DEMO_SCENARIOS:
                 raise HTTPException(422, "Неизвестный демонстрационный сценарий.")
             cleanup()
@@ -297,9 +379,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                             size += len(chunk)
                             if size > config.max_upload_mb * 1024 * 1024:
                                 raise HTTPException(413, f"Максимальный размер файла — {config.max_upload_mb} МБ.")
-                            if storage_bytes() + len(chunk) > config.max_storage_mb * 1024 * 1024:
+                            if len(chunk) > available_bytes():
                                 raise HTTPException(503, "На сервере недостаточно места. Повторите позже.")
                             target.write(chunk)
+                            # Account actual bytes before the next upload can be admitted.
+                            target.flush()
             except TimeoutError:
                 raise HTTPException(408, "Истекло время загрузки. Выберите меньший файл или повторите попытку.")
             if not size:
@@ -320,9 +404,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             active[job_id] = record
             queue.put_nowait(job_id)
             record.timer = asyncio.create_task(expire(record))
+        except OSError:
+            if path:
+                delete_source(path)
+            raise HTTPException(503, "Не удалось сохранить видео на сервере. Проверьте свободное место и доступность хранилища.") from None
         except BaseException:
             if path:
-                path.unlink(missing_ok=True)
+                delete_source(path)
             raise
         finally:
             await file.close()

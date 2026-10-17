@@ -1,5 +1,4 @@
 import {
-  AlertCircle,
   ArrowDownToLine,
   ArrowRight,
   Check,
@@ -15,11 +14,14 @@ import {
   ScanLine,
   ShieldCheck,
 } from "lucide-react";
+import { ReviewSummary } from "./ReviewSummary";
 import { timecode } from "../api";
 import type { ApiError, Frame, Job } from "../api";
+import { getEventAssessment, getResultAssessment } from "../assessment";
+import { AssessmentBadge, AssessmentIcon } from "./AssessmentBadge";
 const stages = [
   { id: "queued", label: "В очереди" },
-  { id: "preparing", label: "Подготовка видео" },
+  { id: "preparing", label: "Подготовка и преобразование" },
   { id: "analyzing", label: "Анализ событий" },
   { id: "matching", label: "Проверка правил" },
 ];
@@ -36,6 +38,8 @@ type Props = {
   canResume: boolean;
   onReset: () => void;
   hasKey: boolean;
+  hideSummary?: boolean;
+  onOpenSettings?: () => void;
 };
 export function ResultPanel({
   job,
@@ -50,9 +54,15 @@ export function ResultPanel({
   canResume,
   onReset,
   hasKey,
+  hideSummary = false,
+  onOpenSettings,
 }: Props) {
   const busy = ["uploading", "restoring", "processing"].includes(phase);
-  const event = job?.violations[activeEvent];
+  const result = getResultAssessment(phase === "done" && !issue ? job : null);
+  const completed = phase === "done" && !issue && result.level !== "incomplete";
+  const invalidResult = phase === "done" && !issue && !completed;
+  const event = completed ? job?.violations[activeEvent] : undefined;
+  const assessment = event ? getEventAssessment(event) : null;
   function download() {
     if (!job) return;
     const url = URL.createObjectURL(
@@ -94,12 +104,14 @@ export function ResultPanel({
         )}
       </div>
       <div role="status" aria-live="polite" className="visually-hidden">
-        {phase === "done"
-          ? "Проверка завершена"
+        {completed
+          ? result.label
           : issue
-            ? title
+            ? `Проверка не завершена. ${title}`
             : busy
-              ? "Видео обрабатывается"
+              ? job?.stage === "preparing"
+                ? "Подготовка и преобразование видео в MP4"
+                : "Видео обрабатывается"
               : ""}
       </div>
       {phase === "idle" && !issue && (
@@ -130,6 +142,7 @@ export function ResultPanel({
       )}
       {busy && (
         <div className="processing">
+          <AssessmentBadge level="incomplete" label="Проверка не завершена" />
           <div className="processing-symbol">
             <ScanLine size={38} strokeWidth={1.4} />
             <span />
@@ -139,12 +152,16 @@ export function ResultPanel({
               ? "Загружаем запись"
               : phase === "restoring"
                 ? "Восстанавливаем проверку"
-                : "Проверяем видеозапись"}
+                : job?.stage === "preparing"
+                  ? "Подготавливаем видео"
+                  : "Проверяем видеозапись"}
           </h3>
           <p>
-            {job?.mode === "demo"
-              ? "Тестовый сценарий, без распознавания действий."
-              : "Ожидаем подтверждённый результат сервиса."}
+            {job?.stage === "preparing"
+              ? "Проверяем файл и преобразуем видео в MP4 для анализа."
+              : job?.mode === "demo"
+                ? "Тестовый сценарий, без распознавания действий."
+                : "Ожидаем подтверждённый результат сервиса."}
           </p>
           <ol className="stages">
             {stages.map((stage, index) => {
@@ -181,21 +198,40 @@ export function ResultPanel({
             <p className="deadline">
               Общий срок: до{" "}
               {new Date(job.deadline_at).toLocaleTimeString("ru-RU")} — включая
-              загрузку и очередь.
+              загрузку, очередь и преобразование.
             </p>
           )}
         </div>
       )}
-      {issue && !busy && (
-        <div className="failed-result" role="alert">
-          <AlertCircle size={36} />
-          <h3>{title}</h3>
-          <p>{issue.message}</p>
-          {phase === "failed" && (
-            <p className="failure-truth">
-              Вердикт не сформирован. Ошибка обработки не означает отсутствие
-              нарушений.
-            </p>
+      {!busy && (issue || phase === "failed" || invalidResult) && (
+        <div
+          className="failed-result assessment-incomplete"
+          role="alert"
+          data-assessment="incomplete"
+        >
+          <AssessmentIcon level="incomplete" size={36} />
+          <h3>Проверка не завершена</h3>
+          {issue && <p className="failure-context">{title}</p>}
+          <p>
+            {issue?.message ??
+              job?.error ??
+              "Ответ сервиса некорректен. Результат проверки не определён."}
+          </p>
+          <p className="failure-truth">
+            Вердикт не сформирован. Ошибка обработки не означает отсутствие
+            нарушений.
+          </p>
+          {issue?.kind === "auth" && onOpenSettings && (
+            <a
+              className="settings-recovery"
+              href="#settings"
+              onClick={(event) => {
+                event.preventDefault();
+                onOpenSettings();
+              }}
+            >
+              Открыть настройки
+            </a>
           )}
           <div className="recovery-actions">
             {canResume && phase !== "failed" && (
@@ -204,7 +240,7 @@ export function ResultPanel({
                 onClick={onResume}
                 disabled={!hasKey}
               >
-                {issue.kind === "auth"
+                {issue?.kind === "auth"
                   ? "Продолжить с этим ключом"
                   : "Обновить статус"}
               </button>
@@ -218,52 +254,65 @@ export function ResultPanel({
           )}
         </div>
       )}
-      {phase === "done" && job && (
+      {completed && job && (
         <div className="completed-result">
-          <div
-            className={`verdict ${job.verdict === "violation" ? "attention" : "clear"}`}
+          {!hideSummary && <ReviewSummary job={job} />}
+          <ul
+            className="assessment-counts"
+            aria-label="Количество событий по уровню"
           >
-            {job.verdict === "violation" ? (
-              <AlertCircle size={24} />
-            ) : (
-              <CheckCircle2 size={24} />
-            )}
-            <div>
-              <h3>
-                {job.mode === "demo"
-                  ? job.verdict === "violation"
-                    ? "Демо: пример найденных событий"
-                    : "Демо: нарушений не обнаружено"
-                  : job.verdict === "violation"
-                    ? "Есть признаки возможных нарушений"
-                    : "Нарушение не обнаружено"}
-              </h3>
-              <p>
-                {job.mode === "demo"
-                  ? "События созданы тестовым сценарием. ML не анализировал содержимое видео."
-                  : "Проверьте доказательства и примите решение самостоятельно."}
-              </p>
-            </div>
-          </div>
+            <li className="assessment-strong_evidence">
+              <AssessmentIcon level="strong_evidence" />
+              <span>
+                Явные признаки нарушения: <strong>{result.strongCount}</strong>
+              </span>
+            </li>
+            <li className="assessment-needs_review">
+              <AssessmentIcon level="needs_review" />
+              <span>
+                Требует уточнения: <strong>{result.reviewCount}</strong>
+              </span>
+            </li>
+          </ul>
           {job.violations.length > 0 && (
             <>
               <div className="event-list" aria-label="Найденные события">
                 {job.violations.map((item, index) => (
                   <button
                     key={index}
-                    className={index === activeEvent ? "active" : ""}
+                    className={`assessment-${getEventAssessment(item).level} ${index === activeEvent ? "active" : ""}`}
+                    data-assessment={getEventAssessment(item).level}
                     onClick={() => onSelect(index)}
                     aria-pressed={index === activeEvent}
                   >
                     <span>{index + 1}</span>
-                    <strong>{item.type}</strong>
+                    <span className="event-list-copy">
+                      <strong>{item.type}</strong>
+                      <AssessmentBadge {...getEventAssessment(item)} />
+                    </span>
                     <time>{timecode(item.timecode_sec)}</time>
                     <ChevronRight size={16} />
                   </button>
                 ))}
               </div>
-              {event && (
-                <article className="event-detail">
+              {event && assessment && (
+                <article
+                  className={`event-detail assessment-${assessment.level}`}
+                  data-assessment={assessment.level}
+                >
+                  <div className="assessment-explanation">
+                    <AssessmentBadge
+                      level={assessment.level}
+                      label={assessment.label}
+                    />
+                    <h4>Почему выбран этот уровень</h4>
+                    <p>{assessment.reason}</p>
+                    {job.mode === "demo" && (
+                      <p className="assessment-demo-note">
+                        Оценка вымышлена для демонстрации интерфейса.
+                      </p>
+                    )}
+                  </div>
                   <div className="evidence-heading">
                     <h4>Кадры-доказательства</h4>
                     <button
@@ -272,7 +321,7 @@ export function ResultPanel({
                       disabled={!canPlay}
                       title={
                         !canPlay
-                          ? "Повторно выберите локальный видеофайл для перехода к событию"
+                          ? "Для перехода нужен исходный файл с доступным предпросмотром в браузере"
                           : "Перейти к событию в видео"
                       }
                     >
@@ -324,7 +373,9 @@ export function ResultPanel({
                       <p>
                         {event.rule
                           ? `${event.rule.document} · ${event.rule.section}`
-                          : "Тестовый пример не связан с реальным нормативом."}
+                          : job.mode === "demo"
+                            ? "Тестовый пример не связан с реальным нормативом."
+                            : "Источник правила не передан в результате."}
                       </p>
                       {event.rule &&
                         !event.rule.is_demo &&
@@ -371,7 +422,7 @@ export function ResultPanel({
                         upload: "Загрузка",
                         queued: "Очередь",
                         queue: "Очередь",
-                        preparing: "Подготовка",
+                        preparing: "Подготовка и преобразование",
                         analyzing: "Анализ",
                         matching: "Проверка правил",
                         total: "Всего",
