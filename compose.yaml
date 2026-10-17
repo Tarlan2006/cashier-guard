@@ -1,0 +1,41 @@
+services:
+  backend:
+    build: .
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 15s
+    ports:
+      - "127.0.0.1:${PORT:-8000}:8000"
+    environment:
+      API_KEY: ${API_KEY:?Run scripts/setup.sh or create a private API_KEY in .env}
+      PIPELINE_MODE: ${PIPELINE_MODE:-demo}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-100}
+      JOB_TIMEOUT_SECONDS: ${JOB_TIMEOUT_SECONDS:-290}
+      UPLOAD_TIMEOUT_SECONDS: ${UPLOAD_TIMEOUT_SECONDS:-60}
+      WORKERS: ${WORKERS:-2}
+      QUEUE_SIZE: ${QUEUE_SIZE:-16}
+      MAX_STORED_JOBS: ${MAX_STORED_JOBS:-128}
+      RESULT_TTL_HOURS: ${RESULT_TTL_HOURS:-1}
+      CLEANUP_INTERVAL_SECONDS: ${CLEANUP_INTERVAL_SECONDS:-60}
+      MAX_STORAGE_MB: ${MAX_STORAGE_MB:-2048}
+      MAX_CONCURRENT_UPLOADS: ${MAX_CONCURRENT_UPLOADS:-2}
+      STORAGE_DIR: /app/storage
+      RULES_PATH: /app/data/rules.json
+      ML1_URL: ${ML1_URL:-http://ml1:8001}
+      ML2_URL: ${ML2_URL:-http://ml2:8002}
+    volumes:
+      - cashier_storage:/app/storage
+      - ./data:/app/data:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3).close()"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  cashier_storage:

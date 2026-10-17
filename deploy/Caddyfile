@@ -1,0 +1,26 @@
+{
+	email {$ACME_EMAIL}
+	servers {
+		timeouts {
+			read_header 10s
+			read_body {$UPLOAD_TIMEOUT_SECONDS:60}s
+			write 300s
+			idle 60s
+		}
+	}
+}
+
+{$DOMAIN} {
+	# A 100 MiB file plus 1 MiB for multipart framing; backend verifies file size.
+	request_body {
+		max_size {$PROXY_MAX_BODY_BYTES:105906176}
+	}
+	# Do not enable access-log header dumping: X-API-Key is a credential.
+	# No request buffering: backend starts its budget during the upload.
+	reverse_proxy backend:8000 {
+		transport http {
+			dial_timeout 3s
+			response_header_timeout 295s
+		}
+	}
+}

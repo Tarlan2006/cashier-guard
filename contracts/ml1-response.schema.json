@@ -24,6 +24,8 @@
     "Observation": {
       "properties": {
         "id": {
+          "maxLength": 200,
+          "minLength": 1,
           "title": "Id",
           "type": "string"
         },
@@ -38,6 +40,7 @@
           "type": "number"
         },
         "description": {
+          "maxLength": 8000,
           "minLength": 1,
           "title": "Description",
           "type": "string"
@@ -66,7 +69,6 @@
   "properties": {
     "schema_version": {
       "const": "1.0",
-      "default": "1.0",
       "title": "Schema Version",
       "type": "string"
     },
@@ -74,10 +76,15 @@
       "items": {
         "$ref": "#/$defs/Observation"
       },
+      "maxItems": 100,
       "title": "Events",
       "type": "array"
     }
   },
+  "required": [
+    "schema_version",
+    "events"
+  ],
   "title": "Observations",
   "type": "object"
 }

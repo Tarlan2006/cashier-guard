@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-17T10:23:08.129533+00:00",
+  "generatedAt": "2026-10-17T11:30:59.000Z",
   "title": "Design System: Cashier Guard",
   "extensions": {
     "colorMeta": {
@@ -273,9 +273,9 @@
     },
     "shadows": [
       {
-        "name": "selected-segment",
-        "value": "0 1px 3px #263a2412",
-        "purpose": "Selected scenario only."
+        "name": "evidence-dialog",
+        "value": "0 16px 60px #071d2d45",
+        "purpose": "Modal evidence viewer only; work panels remain flat."
       }
     ],
     "motion": [
@@ -312,16 +312,90 @@
         "name": "mobile-max",
         "value": "720px"
       }
-    ]
+    ],
+    "layout": {
+      "desktop": {
+        "railWidth": "244px",
+        "topbarHeight": "64px",
+        "mainMaxWidth": "1436px",
+        "mainTopPadding": "24px",
+        "mainGutter": "44px",
+        "workspaceColumns": "0.92fr 1.12fr",
+        "workspaceGap": "22px",
+        "panelPadding": "20px",
+        "uploadMinHeight": "164px"
+      },
+      "compact": {
+        "maxWidth": "1200px",
+        "railWidth": "210px",
+        "mainGutter": "28px",
+        "workspaceColumns": "1fr 1.05fr",
+        "workspaceGap": "16px"
+      },
+      "tablet": {
+        "maxWidth": "980px",
+        "railWidth": "76px",
+        "workspaceGap": "18px"
+      },
+      "mobile": {
+        "maxWidth": "720px",
+        "navigationHeight": "61px",
+        "topbarHeight": "48px",
+        "mainTopPadding": "20px",
+        "mainGutter": "20px",
+        "panelPadding": "20px",
+        "workspaceColumns": "1fr",
+        "workspaceGap": "20px",
+        "uploadMinHeight": "180px"
+      },
+      "primaryAction": "46px high, directly below the upload-panel heading in normal flow; margin-bottom 18px, padding-bottom 16px, separating border. Does not cover the timeline."
+    },
+    "typography": {
+      "fontFamily": "\"Manrope Variable\", sans-serif",
+      "pageHeadline": "34px desktop / 31px at <=1200px / 28px at <=720px",
+      "panelTitle": "17px, weight 750",
+      "body": "15px/1.7 desktop; key explanatory blocks 16px on mobile",
+      "evidenceDescription": "16px/1.75",
+      "labels": "14px desktop; key/scenario labels 15px on mobile",
+      "buttons": "14px, weight 650",
+      "keyInput": "16px",
+      "scenarioSelect": "14px desktop / 16px mobile",
+      "metadata": "12–13px with tabular numerals for times and sizes"
+    },
+    "behavior": {
+      "scenarios": {
+        "control": "native select",
+        "count": 9,
+        "values": [
+          "violation",
+          "no_violation",
+          "multiple_events",
+          "three_frames",
+          "long_text",
+          "demo_rule",
+          "slow",
+          "ml_error",
+          "invalid_ml_response"
+        ]
+      },
+      "currentCheck": "sessionStorage holds the current job id and entered key for this tab; SQLite persists statuses/results. No accounts or full history.",
+      "retention": "Default 1 hour after completion, cleanup every 60 seconds. Completed jobs survive backend restart; unfinished jobs fail with SERVER_RESTARTED.",
+      "localVideo": "File/Object URL is not restored after reload. Reattach a matching name/size file for playback without a new analysis; these checks do not verify content.",
+      "timeline": "Native range step 0.001 seconds, numbered event markers and a wrapping event-button list; millisecond labels. Context playback is ±3 seconds clipped to video boundaries.",
+      "evidence": "1–3 JPEG frames per event; native modal with fit/2× and scrolling. Initial focus is Close, Tab/Shift+Tab wrap, Escape dismisses, and opener focus is restored.",
+      "recovery": "Auth errors focus the editable key; missing job/network/timeout/processing states provide recovery without a fabricated no_violation verdict.",
+      "readiness": "Backend availability and prerequisites are distinct. TCP connectivity does not verify model inference.",
+      "reducedMotion": "Disable CSS animation/transition and use automatic scrolling; preserve user-requested video playback."
+    }
   },
   "components": [
     {
       "name": "Primary button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Standard action with implemented hover, focus, and disabled states.",
-      "html": "<button class=\"ds-button-primary\">Проверить видео</button>",
-      "css": ".ds-button-primary{font-family:\"Manrope Variable\",sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:10px;border:1px solid transparent;border-radius:7px;min-height:43px;padding:11px 16px;font-size:12px;font-weight:650;cursor:pointer;transition:background 150ms ease-out;background:var(--green,#245d4e);color:#fff;}.ds-button-primary:hover:not(:disabled){background:#194736}.ds-button-primary:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}.ds-button-primary:disabled{cursor:not-allowed;background:#dce4d9;color:#5c6b58;}@media(max-width:720px){.ds-button-primary{min-height:46px}}@media(prefers-reduced-motion:reduce){.ds-button-primary{transition:none}}"
+      "description": "Primary analysis action sits directly below the panel heading; 46px high with hover/focus/disabled states.",
+      "html": "<button class=\"ds-button-primary\">Запустить демопроверку</button>",
+      "css": ".ds-button-primary{font-family:\"Manrope Variable\",sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:10px;border:1px solid transparent;border-radius:7px;min-height:46px;padding:11px 16px;font-size:14px;font-weight:650;cursor:pointer;transition:background 150ms ease-out;background:var(--green,#245d4e);color:#fff;}.ds-button-primary:hover:not(:disabled){background:#194736}.ds-button-primary:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}.ds-button-primary:disabled{cursor:not-allowed;background:#dce4d9;color:#5c6b58;}@media(max-width:720px){.ds-button-primary{min-height:46px}}@media(prefers-reduced-motion:reduce){.ds-button-primary{transition:none}}"
     },
     {
       "name": "Secondary button",
@@ -329,7 +403,7 @@
       "refersTo": "button-secondary",
       "description": "Standard action with implemented hover, focus, and disabled states.",
       "html": "<button class=\"ds-button-secondary\">Проверить видео</button>",
-      "css": ".ds-button-secondary{font-family:\"Manrope Variable\",sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:10px;border:1px solid transparent;border-radius:7px;min-height:43px;padding:11px 16px;font-size:12px;font-weight:650;cursor:pointer;transition:background 150ms ease-out;background:#fff;color:var(--ink,#232c29);border-color:#ced7ca;}.ds-button-secondary:hover:not(:disabled){background:#eff4ec}.ds-button-secondary:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}.ds-button-secondary:disabled{cursor:not-allowed;opacity:.45;}@media(max-width:720px){.ds-button-secondary{min-height:46px}}@media(prefers-reduced-motion:reduce){.ds-button-secondary{transition:none}}"
+      "css": ".ds-button-secondary{font-family:\"Manrope Variable\",sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:10px;border:1px solid transparent;border-radius:7px;min-height:43px;padding:11px 16px;font-size:14px;font-weight:650;cursor:pointer;transition:background 150ms ease-out;background:#fff;color:var(--ink,#232c29);border-color:#ced7ca;}.ds-button-secondary:hover:not(:disabled){background:#eff4ec}.ds-button-secondary:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}.ds-button-secondary:disabled{cursor:not-allowed;opacity:.45;}@media(max-width:720px){.ds-button-secondary{min-height:46px}}@media(prefers-reduced-motion:reduce){.ds-button-secondary{transition:none}}"
     },
     {
       "name": "Text button",
@@ -337,23 +411,23 @@
       "refersTo": "button-text",
       "description": "Quiet inline action.",
       "html": "<button class=\"ds-text\">Скачать JSON</button>",
-      "css": ".ds-text{font-family:\"Manrope Variable\",sans-serif;border:0;background:transparent;color:var(--green,#245d4e);padding:3px 0;font-size:10px;font-weight:700;cursor:pointer}.ds-text:hover{text-decoration:underline;text-underline-offset:3px}.ds-text:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}"
+      "css": ".ds-text{font-family:\"Manrope Variable\",sans-serif;border:0;background:transparent;color:var(--green,#245d4e);padding:3px 0;min-height:32px;font-size:12px;font-weight:700;cursor:pointer}.ds-text:hover{text-decoration:underline;text-underline-offset:3px}.ds-text:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}"
     },
     {
       "name": "Icon button",
       "kind": "button",
       "refersTo": "button-icon",
-      "description": "Compact icon action using inline SVG.",
+      "description": "Named icon action with at least 36px target; dialog close is 44px on mobile.",
       "html": "<button class=\"ds-icon\" aria-label=\"Удалить видео\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg></button>",
-      "css": ".ds-icon{width:32px;height:32px;border:0;background:none;display:inline-flex;align-items:center;justify-content:center;border-radius:5px;color:#647061;cursor:pointer}.ds-icon:hover{background:#f0f3ee}.ds-icon:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}.ds-icon:disabled{opacity:.4;cursor:not-allowed}"
+      "css": ".ds-icon{width:36px;height:36px;border:0;background:none;display:inline-flex;align-items:center;justify-content:center;border-radius:5px;color:#647061;cursor:pointer}.ds-icon:hover{background:#f0f3ee}.ds-icon:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}.ds-icon:disabled{opacity:.4;cursor:not-allowed}"
     },
     {
       "name": "Key field",
       "kind": "input",
       "refersTo": "input",
-      "description": "Grouped key-entry border and focus treatment.",
+      "description": "16px key entry, visibility toggle and grouped focus. Auth failure focuses this field; key remains editable after the request stops.",
       "html": "<label class=\"ds-label\" for=\"ds-key\">Ключ доступа к API</label><div class=\"ds-field\"><input id=\"ds-key\" type=\"password\" placeholder=\"Введите ключ сервиса\" /></div>",
-      "css": ".ds-label{font-family:\"Manrope Variable\",sans-serif;display:block;font-size:11px;font-weight:650;margin-bottom:9px;color:var(--ink,#232c29)}.ds-field{display:flex;border:1px solid #cbd3c9;border-radius:7px;background:#fff;padding-right:6px}.ds-field:focus-within{outline:2px solid #7cae96;outline-offset:2px}.ds-field input{font-family:\"Manrope Variable\",sans-serif;min-width:0;flex:1;border:0;background:transparent;padding:11px 12px;font-size:12px;outline:none;color:var(--ink,#232c29);caret-color:var(--green,#245d4e)}.ds-field input::placeholder{color:#727a71}.ds-field input:disabled{opacity:.65}@media(max-width:720px){.ds-field input{font-size:16px;padding:11px}}"
+      "css": ".ds-label{font-family:\"Manrope Variable\",sans-serif;display:block;font-size:14px;font-weight:650;margin-bottom:7px;color:var(--ink,#232c29)}.ds-field{display:flex;border:1px solid #cbd3c9;border-radius:7px;background:#fff;padding-right:6px}.ds-field:focus-within{outline:2px solid #7cae96;outline-offset:2px}.ds-field input{font-family:\"Manrope Variable\",sans-serif;min-width:0;flex:1;border:0;background:transparent;padding:11px 12px;font-size:16px;outline:none;color:var(--ink,#232c29);caret-color:var(--green,#245d4e)}.ds-field input::placeholder{color:#727a71}.ds-field input:disabled{opacity:.65}@media(max-width:720px){.ds-field input{font-size:16px;padding:11px}}"
     },
     {
       "name": "Selected navigation",
@@ -361,7 +435,7 @@
       "refersTo": "navigation-selected",
       "description": "Current destination inside the deep green shell.",
       "html": "<nav class=\"ds-nav\"><button aria-current=\"page\">Проверка видео</button></nav>",
-      "css": ".ds-nav{background:#173d36;padding:20px}.ds-nav button{font-family:\"Manrope Variable\",sans-serif;width:100%;text-align:left;border:0;background:#31564a;color:#fff;padding:13px 15px;font-size:13px;font-weight:600;border-radius:8px;cursor:pointer}.ds-nav button:hover{background:#3a6052}.ds-nav button:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}"
+      "css": ".ds-nav{background:#173d36;padding:20px}.ds-nav button{font-family:\"Manrope Variable\",sans-serif;width:100%;text-align:left;border:0;background:#31564a;color:#fff;padding:13px 15px;font-size:15px;font-weight:600;border-radius:8px;cursor:pointer}.ds-nav button:hover{background:#3a6052}.ds-nav button:focus-visible{outline:3px solid #7cae96;outline-offset:4px;}"
     },
     {
       "name": "Demo tag",
@@ -369,31 +443,39 @@
       "refersTo": "demo-tag",
       "description": "Noninteractive annotation; written notice remains when tag is hidden in the app.",
       "html": "<div class=\"ds-demo\"><span class=\"ds-tag\">ДЕМО</span></div>",
-      "css": ".ds-demo{background:#f4ebda;padding:16px;color:#785320}.ds-tag{font-family:\"Manrope Variable\",sans-serif;display:inline-block;border:1px solid #dac5a4;border-radius:4px;padding:4px 6px;font-size:9px;letter-spacing:.06em;font-weight:700}"
+      "css": ".ds-demo{background:#f4ebda;padding:12px 16px;color:#785320}.ds-tag{font-family:\"Manrope Variable\",sans-serif;display:inline-block;border:1px solid #dac5a4;border-radius:4px;padding:4px 6px;font-size:12px;letter-spacing:.06em;font-weight:700}"
     },
     {
       "name": "Work panel",
       "kind": "card",
       "refersTo": "panel",
-      "description": "Flat bordered work surface.",
+      "description": "Flat bordered work surface with 20px padding, 17px panel title and readable explanatory copy.",
       "html": "<section class=\"ds-panel\"><h2>Результат проверки</h2><p>Ожидание записи</p></section>",
-      "css": ".ds-panel{font-family:\"Manrope Variable\",sans-serif;background:var(--surface,#fff);color:var(--ink,#232c29);border:1px solid var(--line,#e2e6df);border-radius:var(--radius,14px);padding:23px}.ds-panel h2{margin:0;font-size:15px;font-weight:750;letter-spacing:-.02em}.ds-panel p{font-size:11px;color:var(--muted,#69716b);line-height:1.8;margin:10px 0 0}@media(max-width:1200px){.ds-panel{padding:20px}}@media(max-width:720px){.ds-panel{padding:21px}}"
+      "css": ".ds-panel{font-family:\"Manrope Variable\",sans-serif;background:var(--surface,#fff);color:var(--ink,#232c29);border:1px solid var(--line,#e2e6df);border-radius:var(--radius,14px);padding:20px}.ds-panel h2{margin:0;font-size:17px;font-weight:750;letter-spacing:-.02em}.ds-panel p{font-size:15px;color:var(--muted,#69716b);line-height:1.7;margin:10px 0 0}@media(max-width:720px){.ds-panel p{font-size:16px}}"
     },
     {
       "name": "Scenario selector",
+      "kind": "input",
+      "description": "Labelled native select with nine explicit demo scenarios; 44px minimum height and visible keyboard focus.",
+      "html": "<div class=\"ds-scenarios\"><label for=\"ds-scenario\">Тестовый сценарий</label><select id=\"ds-scenario\"><option value=\"violation\">Одно событие</option><option value=\"no_violation\">Нет событий</option><option value=\"multiple_events\">Несколько событий</option><option value=\"three_frames\">Три кадра у события</option><option value=\"long_text\">Длинные названия и описания</option><option value=\"demo_rule\">Вымышленный источник</option><option value=\"slow\">Медленная обработка</option><option value=\"ml_error\">Ошибка ML</option><option value=\"invalid_ml_response\">Некорректный ответ ML</option></select></div>",
+      "css": ".ds-scenarios{font-family:\"Manrope Variable\",sans-serif}.ds-scenarios label{display:block;font-size:14px;font-weight:650;margin-bottom:7px}.ds-scenarios select{font:inherit;width:100%;min-height:44px;border:1px solid #cbd3c9;background:#fff;border-radius:7px;padding:9px 34px 9px 11px;font-size:14px;color:#232c29}.ds-scenarios select:focus-visible{outline:3px solid #7cae96;outline-offset:3px}@media(max-width:720px){.ds-scenarios label{font-size:15px}.ds-scenarios select{font-size:16px}}"
+    },
+    {
+      "name": "Evidence viewer",
       "kind": "custom",
-      "description": "Native radio selection with the only recurring shadow.",
-      "html": "<fieldset class=\"ds-scenarios\"><legend>Тестовый результат</legend><div><label><input type=\"radio\" name=\"ds-scenario\" checked>С событием</label><label><input type=\"radio\" name=\"ds-scenario\">Без событий</label></div></fieldset>",
-      "css": ".ds-scenarios{font-family:\"Manrope Variable\",sans-serif;border:0;padding:0;margin:0}.ds-scenarios legend{font-size:11px;font-weight:650;margin-bottom:9px}.ds-scenarios>div{display:flex;padding:3px;background:#f1f3ee;border-radius:7px;gap:3px}.ds-scenarios label{position:relative;flex:1;text-align:center;font-size:11px;padding:8px;border-radius:5px;color:var(--muted,#69716b);cursor:pointer}.ds-scenarios label:has(input:checked){background:#fff;color:#284f3d;box-shadow:0 1px 3px #263a2412;font-weight:700}.ds-scenarios input{position:absolute;opacity:0;width:100%;height:100%;inset:0;margin:0;cursor:pointer}.ds-scenarios label:has(input:focus-visible){outline:2px solid #7cae96;outline-offset:2px}.ds-scenarios:disabled{opacity:.6}"
+      "description": "Shipped FrameDialog uses a native modal with initial Close focus, explicit Tab wrapping, Escape dismissal and return to opener. This specimen only illustrates its toolbar.",
+      "html": "<section class=\"ds-frame\"><h2>Кадр · 00:03.125</h2><p>Из загруженной записи</p><div><button>Увеличить 2×</button><button aria-label=\"Закрыть просмотр кадра\">Закрыть</button></div><p>Escape — закрыть. При увеличении прокручивайте изображение для просмотра деталей.</p></section>",
+      "css": ".ds-frame{font-family:\"Manrope Variable\",sans-serif;padding:20px;background:#fff;color:#232c29;border-radius:14px;box-shadow:0 16px 60px #071d2d45;max-width:650px}.ds-frame h2{font-size:18px;margin:0}.ds-frame p{font-size:13px;color:#69716b;line-height:1.6}.ds-frame>div{display:flex;gap:10px}.ds-frame button{font:inherit;font-size:14px;min-height:43px;padding:11px 16px;background:#fff;border:1px solid #ced7ca;border-radius:7px}.ds-frame button:focus-visible{outline:3px solid #7cae96;outline-offset:4px}"
     }
   ],
   "narrative": {
     "northStar": "Calm daytime review desk",
-    "overview": "This describes the implemented Operate scaffold: deep green navigation, warm near-white surroundings, white work panels, and restrained status colors. It is a code-led direction recorded after implementation, not an approved concept seed or image comp.\n\nThe interface is compact and task-focused. Evidence, status, and controls share locally bundled Manrope and consistent Lucide SVG icons. Demo and possible-event notices remain explicit; color supports their written meaning.",
+    "overview": "The implemented review workspace retains deep green navigation, warm near-white surroundings, white panels and written status colors. Documentation is derived from the current App, components, hooks and final CSS cascade; it does not imply screenshot approval or public deployment.\n\nThe input area is compact while explanations and evidence remain readable. A primary action directly below the upload-panel heading leaves the video timeline unobstructed. One saved check can be restored, failures offer recovery, and nine explicit demo scenarios support development before real local models arrive.",
     "keyCharacteristics": [
       "Deep green navigation with quiet white work surfaces.",
-      "Compact typography, fine borders, and gently rounded controls.",
-      "Written status labels and actual video evidence."
+      "Readable 15–16px explanations, fine borders and rounded controls.",
+      "Visible demo/processing/failure states and recoverable current checks.",
+      "Millisecond video navigation and accessible fit/2× evidence viewing."
     ],
     "rules": [
       {
@@ -403,19 +485,21 @@
       },
       {
         "name": "The Flat Panel Rule",
-        "body": "Separate work panels with surface color and a fine border; reserve the existing shallow shadow for the selected scenario segment.",
+        "body": "Separate work panels with surface color and a fine border; reserve pronounced elevation and the backdrop for modal evidence viewing.",
         "section": "elevation"
       }
     ],
     "dos": [
       "Do preserve explicit demo and human-review language in status treatments.",
       "Do retain visible keyboard focus and reduced-motion behavior.",
-      "Do use tabular numerals for timestamps and file metadata."
+      "Do use tabular numerals for timestamps and file metadata.",
+      "Do keep restoration, local-file reattachment, expiry and error recovery understandable on the same page."
     ],
     "donts": [
       "Don't communicate a verdict through color alone.",
       "Don't replace actual evidence frames with decorative imagery.",
-      "Don't infer a general display-text style from the smallest metadata captions."
+      "Don't infer a general display-text style from the smallest metadata captions.",
+      "Do not equate a reachable model port with verified inference or deployment configuration with a public service."
     ]
   }
 }

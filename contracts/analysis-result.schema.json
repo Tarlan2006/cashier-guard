@@ -24,31 +24,52 @@
     "Rule": {
       "properties": {
         "id": {
+          "maxLength": 200,
+          "minLength": 1,
           "title": "Id",
           "type": "string"
         },
         "title": {
+          "maxLength": 8000,
+          "minLength": 1,
           "title": "Title",
           "type": "string"
         },
         "visual_signs": {
           "items": {
+            "maxLength": 8000,
+            "minLength": 1,
             "type": "string"
           },
+          "maxItems": 100,
+          "minItems": 1,
           "title": "Visual Signs",
           "type": "array"
         },
         "document": {
+          "maxLength": 8000,
+          "minLength": 1,
           "title": "Document",
           "type": "string"
         },
         "section": {
+          "maxLength": 8000,
+          "minLength": 1,
           "title": "Section",
           "type": "string"
         },
         "url": {
+          "format": "uri",
+          "maxLength": 2048,
+          "minLength": 1,
+          "pattern": "^https?://",
           "title": "Url",
           "type": "string"
+        },
+        "is_demo": {
+          "default": false,
+          "title": "Is Demo",
+          "type": "boolean"
         }
       },
       "required": [
@@ -65,6 +86,7 @@
     "Violation": {
       "properties": {
         "type": {
+          "maxLength": 8000,
           "minLength": 1,
           "title": "Type",
           "type": "string"
@@ -75,6 +97,7 @@
           "type": "number"
         },
         "description": {
+          "maxLength": 8000,
           "minLength": 1,
           "title": "Description",
           "type": "string"
@@ -91,6 +114,8 @@
         "rule_id": {
           "anyOf": [
             {
+              "maxLength": 200,
+              "minLength": 1,
               "type": "string"
             },
             {
@@ -135,6 +160,7 @@
       "items": {
         "$ref": "#/$defs/Violation"
       },
+      "maxItems": 100,
       "title": "Violations",
       "type": "array"
     }

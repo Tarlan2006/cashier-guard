@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "rules": [{
+    "id": "demo:interface-example",
+    "title": "ВЫМЫШЛЕННЫЙ пример правила для демонстрации интерфейса",
+    "visual_signs": ["Искусственно заданное событие в тестовом сценарии"],
+    "document": "Тестовый документ Cashier Guard — не нормативный акт",
+    "section": "Демонстрационный раздел 1 (вымышленный)",
+    "url": "https://example.invalid/cashier-guard/demo-rule",
+    "is_demo": true
+  }]
+}

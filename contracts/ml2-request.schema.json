@@ -1,0 +1,168 @@
+{
+  "$defs": {
+    "EvidenceFrame": {
+      "properties": {
+        "timestamp_sec": {
+          "minimum": 0,
+          "title": "Timestamp Sec",
+          "type": "number"
+        },
+        "image_base64": {
+          "maxLength": 4000000,
+          "minLength": 4,
+          "title": "Image Base64",
+          "type": "string"
+        }
+      },
+      "required": [
+        "timestamp_sec",
+        "image_base64"
+      ],
+      "title": "EvidenceFrame",
+      "type": "object"
+    },
+    "Observation": {
+      "properties": {
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "start_sec": {
+          "minimum": 0,
+          "title": "Start Sec",
+          "type": "number"
+        },
+        "end_sec": {
+          "minimum": 0,
+          "title": "End Sec",
+          "type": "number"
+        },
+        "description": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "evidence_frames": {
+          "items": {
+            "$ref": "#/$defs/EvidenceFrame"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Evidence Frames",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "start_sec",
+        "end_sec",
+        "description",
+        "evidence_frames"
+      ],
+      "title": "Observation",
+      "type": "object"
+    },
+    "Rule": {
+      "properties": {
+        "id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "visual_signs": {
+          "items": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Visual Signs",
+          "type": "array"
+        },
+        "document": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Document",
+          "type": "string"
+        },
+        "section": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Section",
+          "type": "string"
+        },
+        "url": {
+          "format": "uri",
+          "maxLength": 2048,
+          "minLength": 1,
+          "pattern": "^https?://",
+          "title": "Url",
+          "type": "string"
+        },
+        "is_demo": {
+          "default": false,
+          "title": "Is Demo",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "visual_signs",
+        "document",
+        "section",
+        "url"
+      ],
+      "title": "Rule",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/$defs/Observation"
+      },
+      "maxItems": 100,
+      "title": "Events",
+      "type": "array"
+    },
+    "duration_sec": {
+      "exclusiveMinimum": 0,
+      "title": "Duration Sec",
+      "type": "number"
+    },
+    "rules": {
+      "items": {
+        "$ref": "#/$defs/Rule"
+      },
+      "maxItems": 5000,
+      "minItems": 1,
+      "title": "Rules",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "events",
+    "duration_sec",
+    "rules"
+  ],
+  "title": "MatchingRequest",
+  "type": "object"
+}

@@ -12,3 +12,13 @@ work/
 .impeccable/review/
 data/videos/
 data/annotations.local.json
+.env.*
+!.env.example
+storage/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+deploy/secrets/
+frontend/test-results/
+frontend/playwright-report/

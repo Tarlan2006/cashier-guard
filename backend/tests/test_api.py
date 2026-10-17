@@ -60,7 +60,7 @@ def test_upload_process_poll_and_delete_original(client):
     assert not list(config.storage.glob("*.upload"))
 
 
-@pytest.mark.parametrize("filename,content,status", [("clip.txt", b"x", 415), ("clip.mov", b"", 400), ("clip.mov", b"x" * (1024 * 1024 + 1), 413)])
+@pytest.mark.parametrize("filename,content,status", [("clip.txt", b"x", 415), ("clip.mov", b"", 400), ("clip.mov", b"x" * (1024 * 1024 + 1), 413)], ids=["unsupported", "empty", "oversized"])
 def test_invalid_uploads_leave_no_files(client, filename, content, status):
     api, config = client
     response = api.post("/api/v1/analyze", files={"file": (filename, content)}, headers=HEADERS)

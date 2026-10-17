@@ -3,78 +3,253 @@ import hmac
 import logging
 import time
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
-from typing import Annotated, Literal
+from typing import Annotated
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import pipeline
 from .config import ROOT, Settings
+from .middleware import UploadBudgetMiddleware
 from .models import JobResponse
+from .readiness import inspect_readiness
+from .store import JobStore
 
 logger = logging.getLogger(__name__)
 
 
+def iso(timestamp: float) -> str:
+    return datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
+
+
+@dataclass
+class RunningJob:
+    job: JobResponse
+    path: Path
+    scenario: str
+    started: float
+    queued: float
+    deadline: float
+    stage_started: float
+    work_task: asyncio.Task | None = None
+    timer: asyncio.Task | None = None
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     config = settings or Settings()
-    jobs: dict[str, JobResponse] = {}
-    deadlines: dict[str, float] = {}
-    queue: asyncio.Queue = asyncio.Queue(maxsize=config.queue_size)
+    active: dict[str, RunningJob] = {}
+    # Bounded by admitted jobs; these failure snapshots never contain result frames.
+    unsaved_failures: dict[str, JobResponse] = {}
+    pending_deletions: set[Path] = set()
+    queue: asyncio.Queue[str] = asyncio.Queue(maxsize=config.queue_size)
+    store: JobStore | None = None
+
+    def storage_bytes() -> int:
+        return sum(path.stat().st_size for path in config.storage.iterdir() if path.is_file())
+
+    def rollback_after_write_error():
+        try:
+            store.connection.rollback()
+        except Exception:
+            pass
+
+    def try_save_terminal(job: JobResponse) -> bool:
+        try:
+            store.save(job)
+            return True
+        except Exception as error:
+            rollback_after_write_error()
+            logger.error("Terminal state persistence failed id=%s kind=%s", job.job_id, type(error).__name__)
+            return False
+
+    def delete_source(path: Path):
+        try:
+            path.unlink(missing_ok=True)
+            pending_deletions.discard(path)
+        except OSError as error:
+            pending_deletions.add(path)
+            logger.error("Source cleanup failed kind=%s", type(error).__name__)
+
+    def cleanup():
+        # Keep a bounded tombstone until the stale processing row can be replaced.
+        # Expired tombstones return 404 without resurrecting that stale row.
+        for job_id, job in list(unsaved_failures.items()):
+            if try_save_terminal(job):
+                unsaved_failures.pop(job_id, None)
+        try:
+            store.delete_expired(time.time())
+        except Exception as error:
+            rollback_after_write_error()
+            logger.error("Result expiry cleanup failed kind=%s", type(error).__name__)
+        for path in list(pending_deletions):
+            delete_source(path)
+        # Active originals are removed on every terminal state; only stale orphans use TTL.
+        cutoff = time.time() - config.retention_hours * 3600
+        for path in config.storage.glob("*.upload"):
+            if path.stem not in active and path.stat().st_mtime < cutoff:
+                delete_source(path)
+
+    def set_stage(record: RunningJob, stage: str):
+        now = time.monotonic()
+        previous = record.job.stage
+        record.job.timings_sec["queue" if previous == "queued" else previous] = round(now - record.stage_started, 3)
+        record.job.stage = stage
+        record.stage_started = now
+        store.save(record.job)
+
+    def finish(record: RunningJob, code: str | None = None, error: str | None = None, result=None):
+        if record.job.status != "processing":
+            return
+        # Persist a separate snapshot before changing the live record's status.
+        job = record.job.model_copy(deep=True)
+        if result is not None:
+            if storage_bytes() + len(result.model_dump_json().encode()) > config.max_storage_mb * 1024 * 1024:
+                code, error = "STORAGE_FULL", "На сервере закончилось место для результата. Повторите позже или обратитесь к администратору."
+            else:
+                job.verdict, job.violations = result.verdict, result.violations
+        if code:
+            # A failure can never be mistaken for a clean video.
+            job.verdict, job.violations = None, []
+            job.error_code, job.error = code, error
+        now = time.monotonic()
+        previous = job.stage
+        job.timings_sec["queue" if previous == "queued" else previous] = round(now - record.stage_started, 3)
+        job.timings_sec["total"] = round(now - record.started, 3)
+        job.status = job.stage = "failed" if code else "done"
+        completed = time.time()
+        job.completed_at = iso(completed)
+        job.expires_at = iso(completed + config.retention_hours * 3600)
+        try:
+            if not try_save_terminal(job):
+                job.status = job.stage = "failed"
+                job.verdict, job.violations = None, []
+                job.error_code = "STORAGE_WRITE_FAILED"
+                job.error = "Не удалось сохранить результат на сервере. Повторите проверку после восстановления хранилища."
+                if not try_save_terminal(job):
+                    unsaved_failures[job.job_id] = job
+            record.job = job
+        finally:
+            delete_source(record.path)
+            active.pop(job.job_id, None)
+            if record.timer and record.timer is not asyncio.current_task():
+                record.timer.cancel()
+
+    async def expire(record: RunningJob):
+        await asyncio.sleep(max(0, record.deadline - time.monotonic()))
+        if record.job.status == "processing":
+            try:
+                finish(record, "TIMEOUT", "Истекло общее время проверки, включая загрузку и очередь. Попробуйте более короткую запись или повторите позже.")
+            finally:
+                if record.work_task:
+                    record.work_task.cancel()
+
+    async def process(record: RunningJob):
+        try:
+            set_stage(record, "preparing")
+            record.job.duration_sec = await pipeline.probe(record.path)
+            result = await pipeline.analyze(record.path, record.job.duration_sec, config, record.scenario, lambda stage: set_stage(record, stage))
+            # Also guard synchronous work that returns after its allotted deadline.
+            if time.monotonic() >= record.deadline:
+                raise TimeoutError
+            finish(record, result=result)
+        except asyncio.CancelledError:
+            raise
+        except TimeoutError:
+            finish(record, "TIMEOUT", "Истекло общее время проверки, включая загрузку и очередь. Попробуйте более короткую запись.")
+        except FileNotFoundError:
+            finish(record, "DEPENDENCY_UNAVAILABLE", "На сервере не установлен FFmpeg или недоступны рабочие файлы. Обратитесь к администратору.")
+        except ValueError as error:
+            code = getattr(error, "code", "INVALID_VIDEO" if record.job.stage == "preparing" else "INVALID_ML_RESPONSE")
+            message = getattr(error, "message", None)
+            if not message:
+                # Never expose validation exceptions: they may contain entire base64 frames.
+                message = "Не удалось прочитать видео. Загрузите корректный MOV или MP4." if record.job.stage == "preparing" else "ML-модуль вернул некорректный ответ. Проверьте контракт интеграции."
+            finish(record, code, message)
+        except Exception as error:
+            # No tracebacks or exception messages: third-party errors may contain secrets/media.
+            logger.error("Video job failed id=%s kind=%s", record.job.job_id, type(error).__name__)
+            finish(record, "PROCESSING_FAILED", "Не удалось завершить обработку. Проверьте доступность ML-модулей и повторите попытку.")
 
     async def worker():
         while True:
-            job_id, path, scenario = await queue.get()
-            job = jobs[job_id]
+            job_id = await queue.get()
+            record = active.get(job_id)
             try:
-                remaining = config.timeout - (time.monotonic() - deadlines[job_id])
-                if remaining <= 0:
-                    raise TimeoutError
-                async with asyncio.timeout(remaining):
-                    job.stage = "preparing"
-                    job.duration_sec = await pipeline.probe(path)
-                    result = await pipeline.analyze(path, job.duration_sec, config, scenario, lambda stage: setattr(job, "stage", stage))
-                    job.verdict = result.verdict
-                    job.violations = result.violations
-                    job.status = "done"
-                    job.stage = "done"
-            except TimeoutError:
-                job.status, job.stage = "failed", "failed"
-                job.error = "Превышено время обработки. Попробуйте более короткую запись."
-            except FileNotFoundError:
-                job.status, job.stage = "failed", "failed"
-                job.error = "На сервере не установлен FFmpeg. Обратитесь к администратору."
-            except ValueError as error:
-                job.status, job.stage = "failed", "failed"
-                # Schema internals may include frame data. Only expose our short, actionable messages.
-                job.error = str(error) if len(str(error)) < 250 else "ML-модуль вернул некорректный результат. Проверьте контракт интеграции."
-            except Exception:
-                logger.exception("Video job failed: %s", job_id)
-                job.status, job.stage = "failed", "failed"
-                job.error = "Не удалось завершить обработку. Проверьте доступность ML-модулей и повторите попытку."
+                if record is None:
+                    continue
+                if time.monotonic() >= record.deadline:
+                    finish(record, "TIMEOUT", "Истекло время ожидания в очереди. Повторите проверку позже.")
+                    continue
+                record.work_task = asyncio.create_task(process(record))
+                try:
+                    await record.work_task
+                except asyncio.CancelledError:
+                    # A job's deadline cancels that job, without losing a queue worker.
+                    if asyncio.current_task().cancelling():
+                        raise
             finally:
-                path.unlink(missing_ok=True)
                 queue.task_done()
+
+    async def cleanup_loop():
+        while True:
+            await asyncio.sleep(config.cleanup_interval)
+            cleanup()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        nonlocal store
         config.validate()
         config.storage.mkdir(parents=True, exist_ok=True)
-        # Jobs are session-local. Remove uploads left by an interrupted previous run.
+        store = JobStore(config.storage / "jobs.sqlite3")
+        app.state.store = store
+        app.state.cleanup = cleanup
+        app.state.active = active
+        app.state.unsaved_failures = unsaved_failures
+        # No input survives restart: explicitly fail pending work and preserve its identifier.
+        now = time.time()
+        for job in store.unfinished():
+            job.status = job.stage = "failed"
+            job.verdict, job.violations = None, []
+            job.error_code = "SERVER_RESTARTED"
+            job.error = "Сервер перезапустился до завершения проверки. Загрузите видео повторно."
+            job.completed_at = iso(now)
+            job.expires_at = iso(now + config.retention_hours * 3600)
+            job.timings_sec["total"] = round(max(0, now - datetime.fromisoformat(job.created_at).timestamp()), 3)
+            store.save(job)
         for path in config.storage.glob("*.upload"):
             path.unlink(missing_ok=True)
+        cleanup()
         workers = [asyncio.create_task(worker()) for _ in range(config.workers)]
-        yield
-        for task in workers:
-            task.cancel()
-        await asyncio.gather(*workers, return_exceptions=True)
-        for path in config.storage.glob("*.upload"):
-            path.unlink(missing_ok=True)
+        janitor = asyncio.create_task(cleanup_loop())
+        try:
+            yield
+        finally:
+            timers = []
+            for record in active.values():
+                if record.timer:
+                    record.timer.cancel()
+                    timers.append(record.timer)
+            for task in [janitor, *workers]:
+                task.cancel()
+            await asyncio.gather(janitor, *workers, *timers, return_exceptions=True)
+            for path in config.storage.glob("*.upload"):
+                path.unlink(missing_ok=True)
+            store.close()
 
-    app = FastAPI(title="Cashier Guard API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Cashier Guard API", version="0.2.0", lifespan=lifespan)
+    app.add_middleware(UploadBudgetMiddleware, settings=config)
+
+    @app.exception_handler(HTTPException)
+    async def request_error(request: Request, error: HTTPException):
+        code = {400: "INVALID_UPLOAD", 401: "UNAUTHORIZED", 404: "JOB_NOT_FOUND",
+                408: "TIMEOUT", 413: "UPLOAD_TOO_LARGE", 415: "UNSUPPORTED_FILE_TYPE",
+                422: "INVALID_REQUEST", 503: "SERVICE_BUSY"}.get(error.status_code, "REQUEST_FAILED")
+        return JSONResponse({"detail": error.detail, "error_code": code}, error.status_code, headers=error.headers)
 
     async def authorize(x_api_key: Annotated[str | None, Header()] = None):
         if not x_api_key or not hmac.compare_digest(x_api_key.encode(), config.api_key.encode()):
@@ -82,58 +257,83 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/api/v1/health")
     async def health():
-        return {"status": "ok", "mode": config.mode, "max_upload_mb": config.max_upload_mb}
+        return {"status": "ok", "mode": config.mode, "max_upload_mb": config.max_upload_mb, "job_timeout_seconds": config.timeout, "upload_timeout_seconds": min(config.upload_timeout, config.timeout), "result_ttl_hours": config.retention_hours}
+
+    @app.get("/api/v1/ready")
+    async def ready():
+        return await inspect_readiness(config)
 
     @app.post("/api/v1/analyze", status_code=202, dependencies=[Depends(authorize)])
     async def submit(
+        request: Request,
         file: Annotated[UploadFile, File()],
-        demo_scenario: Annotated[Literal["violation", "no_violation"], Form()] = "violation",
+        demo_scenario: Annotated[str, Form()] = "violation",
     ):
         filename = Path(file.filename or "video.mov").name
-        if Path(filename).suffix.lower() not in {".mov", ".mp4"}:
-            await file.close()
-            raise HTTPException(415, "Поддерживаются файлы MOV и MP4.")
-        # Bound result memory and retain completed jobs for one hour.
-        for key in list(jobs):
-            if jobs[key].status != "processing" and time.monotonic() - deadlines[key] > 3600:
-                del jobs[key]
-                del deadlines[key]
-        if queue.full() or len(jobs) >= 128:
-            await file.close()
-            raise HTTPException(503, "Очередь заполнена. Повторите загрузку позже.")
-        job_id = uuid4().hex
-        path = config.storage / f"{job_id}.upload"
-        size = 0
+        path = None
         try:
-            with path.open("wb") as target:
-                while chunk := await file.read(1024 * 1024):
-                    size += len(chunk)
-                    if size > config.max_upload_mb * 1024 * 1024:
-                        raise HTTPException(413, f"Максимальный размер файла — {config.max_upload_mb} МБ.")
-                    target.write(chunk)
+            if Path(filename).suffix.lower() not in {".mov", ".mp4"}:
+                raise HTTPException(415, "Поддерживаются файлы MOV и MP4.")
+            if demo_scenario not in pipeline.DEMO_SCENARIOS:
+                raise HTTPException(422, "Неизвестный демонстрационный сценарий.")
+            cleanup()
+            if unsaved_failures:
+                raise HTTPException(503, "Хранилище результатов недоступно. Повторите загрузку после восстановления сервиса.")
+            if queue.full() or store.count() >= config.max_jobs:
+                raise HTTPException(503, "Очередь или хранилище результатов заполнены. Повторите загрузку позже.")
+            started = request.state.upload_started_mono
+            started_at = request.state.upload_started_at
+            deadline = started + config.timeout
+            upload_deadline = started + min(config.upload_timeout, config.timeout)
+            if time.monotonic() >= upload_deadline:
+                raise HTTPException(408, "Истекло время загрузки и подготовки запроса. Повторите попытку.")
+            job_id = uuid4().hex
+            path = config.storage / f"{job_id}.upload"
+            size = 0
+            try:
+                async with asyncio.timeout(max(0, upload_deadline - time.monotonic())):
+                    with path.open("wb") as target:
+                        while chunk := await file.read(1024 * 1024):
+                            size += len(chunk)
+                            if size > config.max_upload_mb * 1024 * 1024:
+                                raise HTTPException(413, f"Максимальный размер файла — {config.max_upload_mb} МБ.")
+                            if storage_bytes() + len(chunk) > config.max_storage_mb * 1024 * 1024:
+                                raise HTTPException(503, "На сервере недостаточно места. Повторите позже.")
+                            target.write(chunk)
+            except TimeoutError:
+                raise HTTPException(408, "Истекло время загрузки. Выберите меньший файл или повторите попытку.")
             if not size:
                 raise HTTPException(400, "Файл пуст. Выберите другую запись.")
-            jobs[job_id] = JobResponse(job_id=job_id, status="processing", stage="queued", mode=config.mode,
-                                       filename=filename, created_at=datetime.now(timezone.utc).isoformat())
-            deadlines[job_id] = time.monotonic()
-            try:
-                queue.put_nowait((job_id, path, demo_scenario))
-            except asyncio.QueueFull:
-                del jobs[job_id]
-                del deadlines[job_id]
-                raise HTTPException(503, "Очередь заполнена. Повторите загрузку позже.")
+            now = time.monotonic()
+            if now >= upload_deadline:
+                raise HTTPException(408, "Истекло время загрузки. Выберите меньший файл или повторите попытку.")
+            # Concurrent uploads can have yielded while writing their file.
+            if queue.full() or store.count() >= config.max_jobs:
+                raise HTTPException(503, "Очередь или хранилище результатов заполнены. Повторите позже.")
+            job = JobResponse(job_id=job_id, status="processing", stage="queued", mode=config.mode,
+                              filename=filename, size_bytes=size, created_at=iso(started_at), deadline_at=iso(started_at + config.timeout),
+                              expires_at=iso(started_at + config.timeout + config.retention_hours * 3600),
+                              demo_scenario=demo_scenario if config.mode == "demo" else None,
+                              timings_sec={"upload": round(now - started, 3)})
+            record = RunningJob(job, path, demo_scenario, started, now, deadline, now)
+            store.save(job)
+            active[job_id] = record
+            queue.put_nowait(job_id)
+            record.timer = asyncio.create_task(expire(record))
         except BaseException:
-            path.unlink(missing_ok=True)
+            if path:
+                path.unlink(missing_ok=True)
             raise
         finally:
             await file.close()
-        return {"job_id": job_id, "status": "processing", "mode": config.mode}
+        return {"job_id": job_id, "status": "processing", "mode": config.mode, "deadline_at": job.deadline_at, "expires_at": job.expires_at}
 
     @app.get("/api/v1/jobs/{job_id}", response_model=JobResponse, dependencies=[Depends(authorize)])
     async def get_job(job_id: str):
-        if job_id not in jobs:
-            raise HTTPException(404, "Проверка не найдена. После перезапуска сервиса загрузите видео заново.")
-        return jobs[job_id]
+        job = unsaved_failures.get(job_id) or store.get(job_id)
+        if job is None or (job.status != "processing" and datetime.fromisoformat(job.expires_at).timestamp() <= time.time()):
+            raise HTTPException(404, "Проверка не найдена или срок хранения истёк. Загрузите видео заново.")
+        return job
 
     dist = ROOT / "frontend" / "dist"
     if (dist / "assets").is_dir():
@@ -149,4 +349,3 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 
 app = create_app()
-
