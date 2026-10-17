@@ -1,0 +1,82 @@
+{
+  "$defs": {
+    "EventTypeCount": {
+      "properties": {
+        "category_id": {
+          "title": "Category Id",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "detected": {
+          "title": "Detected",
+          "type": "integer"
+        },
+        "confirmed": {
+          "title": "Confirmed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "category_id",
+        "type",
+        "detected",
+        "confirmed"
+      ],
+      "title": "EventTypeCount",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "successful_videos": {
+      "title": "Successful Videos",
+      "type": "integer"
+    },
+    "videos_with_events": {
+      "title": "Videos With Events",
+      "type": "integer"
+    },
+    "detected_events": {
+      "title": "Detected Events",
+      "type": "integer"
+    },
+    "confirmed_events": {
+      "title": "Confirmed Events",
+      "type": "integer"
+    },
+    "rejected_events": {
+      "title": "Rejected Events",
+      "type": "integer"
+    },
+    "unreviewed_events": {
+      "title": "Unreviewed Events",
+      "type": "integer"
+    },
+    "top_types": {
+      "items": {
+        "$ref": "#/$defs/EventTypeCount"
+      },
+      "title": "Top Types",
+      "type": "array"
+    },
+    "date_basis": {
+      "const": "created_at",
+      "default": "created_at",
+      "title": "Date Basis",
+      "type": "string"
+    }
+  },
+  "required": [
+    "successful_videos",
+    "videos_with_events",
+    "detected_events",
+    "confirmed_events",
+    "rejected_events",
+    "unreviewed_events",
+    "top_types"
+  ],
+  "title": "AnalyticsResponse",
+  "type": "object"
+}

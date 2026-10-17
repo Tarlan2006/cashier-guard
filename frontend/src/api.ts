@@ -1,4 +1,5 @@
 export type Frame = { timestamp_sec: number; image_base64: string };
+export type Assessment = "strong_evidence" | "needs_review";
 export type Rule = {
   id: string;
   title: string;
@@ -7,13 +8,23 @@ export type Rule = {
   url: string;
   is_demo?: boolean;
 };
+export type HumanReview = {
+  decision: "unreviewed" | "confirmed" | "rejected";
+  comment: string;
+  updated_at: string | null;
+};
 export type Violation = {
+  event_id?: string | null;
+  category_id?: string | null;
+  human_review?: HumanReview | null;
   type: string;
   timecode_sec: number;
   description: string;
   evidence_frames: Frame[];
   rule: Rule | null;
   rule_id?: string | null;
+  assessment?: Assessment | null;
+  assessment_reason?: string | null;
 };
 export type Job = {
   job_id: string;
@@ -22,6 +33,11 @@ export type Job = {
   mode: "demo" | "live";
   filename: string;
   duration_sec: number | null;
+  source_time_offset_sec?: number | null;
+  video_available?: boolean;
+  video_expires_at?: string | null;
+  video_size_bytes?: number | null;
+  video_unavailable_reason?: "expired" | "missing" | "not_retained" | null;
   verdict: "violation" | "no_violation" | null;
   violations: Violation[];
   error: string | null;
@@ -64,6 +80,7 @@ export class ApiError extends Error {
 }
 export type RequestOptions = RequestInit & {
   timeoutMs?: number;
+  responseType?: "json" | "blob";
   retries?: number;
   retryDelayMs?: number;
 };
@@ -92,6 +109,7 @@ export async function request<T>(
   options: RequestOptions = {},
 ): Promise<T> {
   const {
+    responseType = "json",
     timeoutMs = 8_000,
     retries = 0,
     retryDelayMs = 500,
@@ -122,7 +140,7 @@ export async function request<T>(
       if (!response.ok) {
         const kind: ErrorKind = [401, 403].includes(response.status)
           ? "auth"
-          : response.status === 404
+          : [404, 410].includes(response.status)
             ? "not_found"
             : [408, 504].includes(response.status)
               ? "timeout"
@@ -150,7 +168,11 @@ export async function request<T>(
         throw new ApiError(kind, message, response.status);
       }
       try {
-        return (await response.json()) as T;
+        return (
+          responseType === "blob"
+            ? await response.blob()
+            : await response.json()
+        ) as T;
       } catch (error) {
         if (controller.signal.aborted) throw error;
         throw new ApiError(
@@ -186,6 +208,11 @@ export function parseJob(value: Job, expectedId: string): Job {
     value.job_id !== expectedId ||
     !["processing", "done", "failed"].includes(value.status) ||
     !["demo", "live"].includes(value.mode) ||
+    typeof value.filename !== "string" ||
+    typeof value.stage !== "string" ||
+    (value.duration_sec !== null &&
+      (!Number.isFinite(value.duration_sec) || value.duration_sec < 0)) ||
+    (value.error !== null && typeof value.error !== "string") ||
     !Array.isArray(value.violations)
   )
     throw new ApiError(
@@ -195,18 +222,29 @@ export function parseJob(value: Job, expectedId: string): Job {
   if (
     value.status === "done" &&
     (!["violation", "no_violation"].includes(value.verdict ?? "") ||
-      (value.verdict === "violation") !== value.violations.length > 0)
+      (value.verdict === "violation") !== value.violations.length > 0 ||
+      value.stage !== "done" ||
+      value.error !== null ||
+      value.error_code != null)
   )
     throw new ApiError(
       "protocol",
       "Сервис вернул несогласованный результат. Проверка не подтверждена.",
     );
   if (
+    value.status !== "done" &&
+    (value.verdict !== null || value.violations.length > 0)
+  )
+    throw new ApiError(
+      "protocol",
+      "Незавершённая проверка не может содержать итоговый вердикт.",
+    );
+  if (
     value.violations.some(
       (event) =>
         !event ||
-        typeof event.type !== "string" ||
-        typeof event.description !== "string" ||
+        !nonBlank(event.type) ||
+        !nonBlank(event.description) ||
         !Number.isFinite(event.timecode_sec) ||
         event.timecode_sec < 0 ||
         !Array.isArray(event.evidence_frames) ||
@@ -217,7 +255,7 @@ export function parseJob(value: Job, expectedId: string): Job {
             !frame ||
             !Number.isFinite(frame.timestamp_sec) ||
             frame.timestamp_sec < 0 ||
-            typeof frame.image_base64 !== "string",
+            !nonBlank(frame.image_base64),
         ),
     )
   )
@@ -225,7 +263,80 @@ export function parseJob(value: Job, expectedId: string): Job {
       "protocol",
       "В результате отсутствуют корректные события или доказательства.",
     );
+  for (const event of value.violations) {
+    if (
+      (event.assessment != null &&
+        !["strong_evidence", "needs_review"].includes(event.assessment)) ||
+      (event.assessment_reason != null && !nonBlank(event.assessment_reason)) ||
+      (event.assessment === "strong_evidence" &&
+        !nonBlank(event.assessment_reason))
+    )
+      throw new ApiError(
+        "protocol",
+        "Сервис передал некорректный уровень оценки или его объяснение. Проверка не завершена.",
+      );
+    if (
+      event.assessment === "strong_evidence" &&
+      value.mode === "live" &&
+      (!isLiveRule(event.rule) ||
+        event.rule_id !== event.rule?.id ||
+        event.evidence_frames.some(
+          (frame) => !isJpegEnvelope(frame.image_base64),
+        ))
+    )
+      throw new ApiError(
+        "protocol",
+        "Для явных признаков нарушения не переданы корректное правило или кадры. Проверка не завершена.",
+      );
+  }
   return value;
+}
+function nonBlank(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+function isLiveRule(rule: Rule | null): boolean {
+  if (
+    !rule ||
+    rule.is_demo === true ||
+    ![rule.id, rule.title, rule.document, rule.section].every(nonBlank) ||
+    rule.id.startsWith("demo:") ||
+    !nonBlank(rule.url) ||
+    /\s/.test(rule.url)
+  )
+    return false;
+  try {
+    const source = new URL(rule.url);
+    return (
+      ["http:", "https:"].includes(source.protocol) &&
+      !!source.hostname &&
+      !source.username &&
+      !source.password
+    );
+  } catch {
+    return false;
+  }
+}
+// The backend fully decodes and verifies JPEGs and resolves live rules against
+// its checked catalog. This boundary check also rejects visibly broken payloads.
+function isJpegEnvelope(value: string): boolean {
+  if (
+    value.length > 4_000_000 ||
+    !/^[A-Za-z0-9+/]+={0,2}$/.test(value) ||
+    value.length % 4 !== 0
+  )
+    return false;
+  try {
+    const bytes = atob(value);
+    return (
+      bytes.length >= 4 &&
+      bytes.charCodeAt(0) === 0xff &&
+      bytes.charCodeAt(1) === 0xd8 &&
+      bytes.charCodeAt(bytes.length - 2) === 0xff &&
+      bytes.charCodeAt(bytes.length - 1) === 0xd9
+    );
+  } catch {
+    return false;
+  }
 }
 export function timecode(seconds: number): string {
   const millis = Math.max(
@@ -243,3 +354,39 @@ export function scrollBehavior(): ScrollBehavior {
     ? "auto"
     : "smooth";
 }
+
+export type HistoryItem = {
+  job_id: string;
+  filename: string;
+  created_at: string;
+  completed_at: string | null;
+  expires_at: string;
+  status: Job["status"];
+  mode: Job["mode"];
+  red_count: number;
+  yellow_count: number;
+  unreviewed_count: number;
+  video_available: boolean;
+  video_expires_at: string | null;
+};
+export type HistoryPage = {
+  items: HistoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+export type Analytics = {
+  successful_videos: number;
+  videos_with_events: number;
+  detected_events: number;
+  confirmed_events: number;
+  rejected_events: number;
+  unreviewed_events: number;
+  top_types: {
+    category_id: string;
+    type: string;
+    detected: number;
+    confirmed: number;
+  }[];
+  date_basis: "created_at";
+};

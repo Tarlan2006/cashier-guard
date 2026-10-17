@@ -1,110 +1,105 @@
 ---
 name: Cashier Guard
-description: Calm daytime workspace for reviewing cash-desk recordings.
+description: Light slate and rose workspace for reviewing cash-desk video evidence.
 colors:
-  green: "#245d4e"
-  green-hover: "#194736"
-  navigation: "#173d36"
-  navigation-selected: "#31564a"
-  ink: "#232c29"
-  muted: "#69716b"
-  canvas: "#f5f6f3"
+  accent: "#db2777"
+  accent-hover: "#be185d"
+  accent-soft: "#fdf2f8"
+  canvas: "#f8fafc"
   surface: "#fff"
-  line: "#e2e6df"
-  focus: "#7cae96"
-  demo-background: "#f4ebda"
-  demo-text: "#785320"
-  attention-background: "#faf1df"
-  attention-text: "#81581e"
-  clear-background: "#edf5e9"
-  clear-text: "#305d3c"
-  error: "#983c2b"
-  disabled-background: "#dce4d9"
-  disabled-text: "#5c6b58"
+  ink: "#0f172a"
+  body: "#1e293b"
+  muted: "#64748b"
+  line: "#e2e8f0"
+  control-line: "#cbd5e1"
+  neutral-ink: "#475569"
+  neutral-bg: "#f1f5f9"
+  strong-ink: "#9f1239"
+  strong-bg: "#fff1f2"
+  review-ink: "#92400e"
+  review-bg: "#fffbeb"
+  clear-ink: "#065f46"
+  clear-bg: "#ecfdf5"
 typography:
   headline:
-    fontFamily: '"Manrope Variable", sans-serif'
-    fontSize: "34px"
-    fontWeight: 650
-    lineHeight: 1.3
-    letterSpacing: "-0.035em"
-  title:
-    fontFamily: '"Manrope Variable", sans-serif'
-    fontSize: "17px"
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: "25px"
     fontWeight: 750
-    letterSpacing: "-0.02em"
-  state-title:
-    fontFamily: '"Manrope Variable", sans-serif'
-    fontSize: "17px"
-    fontWeight: 650
-  body:
-    fontFamily: '"Manrope Variable", sans-serif'
+    lineHeight: 1.3
+    letterSpacing: "-0.025em"
+  panel-title:
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     fontSize: "15px"
-    fontWeight: 450
-    lineHeight: 1.7
-  label:
-    fontFamily: '"Manrope Variable", sans-serif'
+    fontWeight: 750
+    letterSpacing: "-0.015em"
+  explanation:
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
     fontSize: "14px"
-    fontWeight: 650
+    lineHeight: 1.8
+  supporting:
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: "13px"
+    lineHeight: 1.8
   button:
-    fontFamily: '"Manrope Variable", sans-serif'
-    fontSize: "14px"
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: "12px"
     fontWeight: 650
+    lineHeight: 1.5
+  input:
+    fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+    fontSize: "16px"
 rounded:
-  badge: "4px"
-  inset: "5px"
-  control: "7px"
-  content: "8px"
-  upload: "9px"
-  panel: "14px"
+  badge: "6px"
+  navigation-item: "8px"
+  control: "10px"
+  inset: "12px"
+  panel: "16px"
 spacing:
-  icon: "6px"
-  compact: "10px"
+  compact: "8px"
   control: "12px"
   inset: "16px"
-  mobile-gutter: "20px"
-  workspace-gap: "22px"
   panel: "20px"
-  section: "24px"
-  desktop-gutter: "44px"
+  desktop-gutter: "24px"
 components:
   button-primary:
-    backgroundColor: "{colors.green}"
+    backgroundColor: "{colors.accent}"
     textColor: "{colors.surface}"
     typography: "{typography.button}"
     rounded: "{rounded.control}"
-    padding: "11px 16px"
+    padding: "9px 13px"
   button-primary-hover:
-    backgroundColor: "{colors.green-hover}"
+    backgroundColor: "{colors.accent-hover}"
   button-primary-disabled:
-    backgroundColor: "{colors.disabled-background}"
-    textColor: "{colors.disabled-text}"
+    backgroundColor: "{colors.line}"
+    textColor: "{colors.neutral-ink}"
   button-secondary:
     backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
+    textColor: "#334155"
     typography: "{typography.button}"
     rounded: "{rounded.control}"
-    padding: "11px 16px"
-  button-text:
-    textColor: "{colors.green}"
-    padding: "3px 0"
-  button-icon:
-    rounded: "{rounded.inset}"
-    width: "36px"
-    height: "36px"
+    padding: "9px 13px"
+  button-dark:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.surface}"
+    typography: "{typography.button}"
+    rounded: "{rounded.control}"
+    padding: "9px 13px"
   input:
     backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    typography: "{typography.input}"
     rounded: "{rounded.control}"
     padding: "11px 12px"
   navigation-selected:
-    backgroundColor: "{colors.navigation-selected}"
-    textColor: "{colors.surface}"
-    rounded: "{rounded.content}"
-    padding: "13px 15px"
-  demo-tag:
-    textColor: "{colors.demo-text}"
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.accent-hover}"
+    rounded: "{rounded.navigation-item}"
+    padding: "7px 12px"
+  assessment-strong:
+    backgroundColor: "{colors.strong-bg}"
+    textColor: "{colors.strong-ink}"
     rounded: "{rounded.badge}"
-    padding: "4px 6px"
+    padding: "3px 6px"
   panel:
     backgroundColor: "{colors.surface}"
     rounded: "{rounded.panel}"
@@ -115,92 +110,90 @@ components:
 
 ## Overview
 
-**Creative North Star: "Calm daytime review desk"**
+**Creative North Star: "User-supplied light review console"**
 
-This records the implemented review workspace: deep green navigation, warm near-white surroundings, white work panels, and restrained status colors. Values come from the current App, components, hooks and final CSS cascade. No approved concept image or screenshot approval is implied.
+The implemented interface follows the user's complete JSX reference: a cool slate canvas, white rounded work surfaces, rose primary actions and a dark navy video surface. The Cashier Guard name and existing evidence workflow remain. This records the shipped CSS cascade rather than the reference's demo content.
 
-The input area is compact while evidence and explanatory text remain readable. Evidence, status, and controls share locally bundled Manrope and consistent Lucide SVG icons. Current-job recovery, explicit demo scenarios and recoverable failures are part of the same page; color supports written meaning.
+Compact controls and fine dividers keep the workspace dense without giving status color the same meaning as the brand accent. The header uses horizontal section navigation; local video and returned evidence are the visual content. The previous green rail and Manrope identity are superseded by the user's approved reference.
 
 **Key Characteristics:**
-- Deep green navigation with quiet white work surfaces.
-- Readable explanation text, fine borders, and gently rounded controls.
-- Written status labels and actual video evidence.
+- Cool slate surroundings and softly elevated white panels.
+- Rose actions, a rose-gradient Eye mark and dark video surfaces.
+- Written assessment labels with distinct red, amber and green semantics.
+- Responsive horizontal-header shell with stacked work areas on mobile.
 
 ## Colors
 
 ### Primary
-Green marks actions, selected events, links, and timestamps. Deep navigation green anchors the surrounding shell; its lighter selected tone identifies the current destination.
+Rose identifies primary actions, selected navigation, links, timecode actions, keyboard focus and the brand wordmark accent. The Eye mark uses a restrained diagonal rose gradient. Pale rose supports rule references and selected affordances.
 
 ### Secondary
-Amber tones distinguish demo notices and possible events. Pale green identifies a clear result; rust red identifies errors. These are semantic status treatments, not decorative accents.
+Red, amber and green identify strong evidence, human review and clear assessments respectively. Neutral slate identifies incomplete or unknown states. These are labelled semantic states, not interchangeable brand accents.
 
 ### Neutral
-Ink carries primary copy, muted gray-green carries supporting copy, and the warm canvas separates white panels. Fine neutral lines divide work areas and evidence rows. The frontmatter records the recurring palette; isolated illustration tints remain implementation details.
+Cool slate canvas surrounds white panels. Deep slate carries headings and doubles as the dark media/API surface; muted slate carries supporting copy. Fine pale slate borders separate controls and cards.
 
-**The Written Status Rule.** Pair status color with a written label and the corresponding icon or indicator.
+**The Written Status Rule.** Every assessment color accompanies a written label and an icon; never infer a conclusion from color alone.
 
 ## Typography
 
-**Body and heading font:** locally bundled Manrope Variable, with sans-serif fallback. No separate display face is used.
+The source uses the system sans-serif stack requested by the supplied `font-sans` reference. There is no separately loaded display font. The root size is 16px; actual component roles are explicit in the frontmatter. Platform rendering can vary.
 
-The frontmatter gives desktop roles: 34px page headline, 17px panel title, 15px body and 14px labels/buttons. Evidence descriptions use 16px/1.75; introductory, processing and failure explanations generally use 15px, increasing to 16px on mobile. Supporting metadata is generally 12–13px. Key entry is 16px on all sizes; the scenario select is 14px on desktop and 16px on mobile. Panel titles remain 17px. The page headline steps to 31px at 1200px and 28px at 720px. Timestamps and file metadata use tabular numerals; `MM:SS.mmm` preserves fractional seconds. Small legacy captions are not the body-text standard.
+The page headline steps to 23px on mobile. Panel headings step to 14px; section-introduction headings use 21px. Summary titles are 17px/1.6, stepping to 16px on mobile. Explanatory copy is generally 13–14px with generous leading. Main analysis action text is 14px; the key input stays 16px. Timestamps and file metadata use tabular numerals. Small metadata captions (11–12px) do not establish a body-text standard. API JSON uses the browser monospace treatment.
 
 ## Layout
 
-The desktop shell uses a sticky full-height 244px navigation rail, a 64px topbar, and a centered main region capped at 1436px. Main padding is 24px at the top and 44px horizontally. Two work areas use a 0.92:1.12 column ratio and 22px gap; panel padding is 20px. The upload target has a 164px minimum height. The 46px primary action sits immediately below the upload-panel heading, in normal document flow with an 18px bottom margin, 16px bottom padding and a separating border. It does not overlay the video or timeline. This makes the initial action easy to find without shrinking explanatory text.
+The sticky top header and main region share a centered 1280px maximum width. Desktop horizontal gutters are 24px. The main region starts with a breadcrumb, compact task heading and upload toolbar; availability or a completed assessment occupies a separate row above the workspace. The desktop workspace uses a 7:5 grid with a 20px gap. Panels use 20px padding. Upload and results remain in normal document flow.
 
-At 1200px the rail narrows to 210px, main gutters to 28px, and columns approach equality with a 16px gap. At 980px navigation becomes a 76px icon rail and the gap is 18px. At 720px it becomes a 61px top strip with a 48px topbar; work areas stack in document order with a 20px gap. Mobile main gutters/top padding and panel padding are 20px; the upload target is at least 180px high. The explanatory grid becomes one column. Current final overrides keep compact sizing even above 1600px; the earlier large-screen rules do not determine the shipped layout.
+At 1024px the header may wrap and the workspace shifts to a 1.15:1 ratio. At 760px the header navigation becomes a two-column grid, main gutters become 16px, work panels stack with an 18px gap, and panel padding becomes 17px. Breadcrumb text truncates when necessary. Long filenames truncate in the toolbar while detailed file information remains in the upload area. Secondary sections use the same shell: sources, actual JSON and processing architecture. Switching sections preserves the current local video.
 
 ## Elevation & Depth
 
-Work panels use fine borders and tonal separation. The evidence dialog alone uses a strong elevation shadow (`0 16px 60px #071d2d45`) and a dark green backdrop (`#10231ecc`). Keyboard focus uses a green outline: 3px with 4px offset globally, 2px with 2px offset around the key field, and 3px with 3px offset on the scenario select. Evidence-image buttons use a 4px inset outline. Legacy segmented-control CSS remains in the stylesheet but no longer corresponds to a rendered control.
+Fine borders, tonal surfaces and very small ambient shadows define ordinary panels. The sticky white header is slightly translucent with a 14px backdrop blur. The Eye mark has a small rose shadow. The modal frame viewer uses pronounced depth and a blurred dark backdrop; it is the elevated inspection surface.
 
-**The Flat Panel Rule.** Separate work panels with surface color and a fine border; reserve pronounced elevation and the backdrop for modal evidence viewing.
+### Shadow Vocabulary
+- **Panel separation** (`0 1px 2px #0f172a04`): toolbar and primary work panels.
+- **Selected navigation** (`0 1px 2px #0f172a08`): white current-section item.
+- **Brand mark** (`0 3px 8px #db277720`): rose Eye square.
+- **Evidence dialog** (`0 16px 60px #0f172a40`): modal frame inspection.
 
 ## Shapes
 
-Panels have the broadest corners; controls use tighter corners and evidence containers sit between them. Upload targets use a dashed border. Circular geometry belongs to status markers, stage numbers, and the empty-state illustration. Evidence and video containers clip media while retaining its aspect ratio.
+Work panels, summary banners and the frame dialog use the broad panel radius. Fields and buttons use tighter control corners; navigation items and small semantic badges are tighter again. The upload target is a rounded dark rectangle with a dashed outline. Video and evidence containers clip actual media without inventing imagery. Circular stage/status markers remain native to the processing and timeline components.
 
 ## Components
 
 ### Buttons
-Primary actions use green and white, secondary actions use white with a neutral border, text actions are green and underline on hover, and icon actions use a quiet hover fill. Standard buttons have a 43px minimum height, increasing to 46px on mobile; the main analysis action is 46px throughout. Button text is 14px. Icon targets are at least 36px and the mobile dialog close target is 44px. Background transitions last 150ms with ease-out. Disabled primary buttons use the explicit muted palette; disabled secondary and icon buttons reduce opacity.
-
-### Chips
-The demo tag is a small outlined status annotation inside the amber notice; it is hidden at 1200px and below while the written notice remains visible. It is not an interactive filter.
-
-### Cards / Containers
-White work panels share the 14px panel radius, line border, and 20px padding. Results contain a written verdict, selectable event rows, 1–3 evidence images, millisecond timecode actions and a separated rule reference. Long event names and file names wrap. Demo sources are explicitly fictional and are not rendered as authoritative external links. Completed results can be downloaded as JSON and show their expiry time; expandable stage timings remain secondary information.
+Primary rose controls have white text, a 38px minimum desktop height and 42px minimum mobile height. Standard padding and typography are recorded in the frontmatter. The full-width analysis action is at least 44px high and appears after a file is selected. Secondary controls are white with a fine border; the JSON action is dark slate. Hover changes background over 150ms ease-out. Disabled primary controls use neutral colors; disabled secondary controls reduce opacity.
 
 ### Inputs / Fields
-The key field uses a thin neutral border and grouped focus outline, with a visibility button at least 36px wide. Auth failure restores editability and focuses the key field. Demo scenarios use a labelled native select with nine options: one event, no events, multiple events, three frames, long text, fictional source, slow processing, ML error and invalid ML response. The select is at least 44px high. Upload is a keyboard-accessible dashed button whose hover and drag states share a pale green fill and stronger border.
-
-### Current check and recovery
-
-The tab stores the current `job_id` and entered key in sessionStorage; the backend persists statuses and evidence in SQLite. There are no accounts or full history. On reload the result panel shows restoration, then the saved state. A separate restored-file panel explains that the local File/Object URL is gone and offers file reattachment without another analysis. Filename and size checks assist selection but do not verify file contents. Results expire after one hour by default; the backend cleans them periodically. A restart fails unfinished jobs with an explicit restart error and keeps completed results. Readiness and backend connectivity have separate messages. Auth, missing-job, network/timeout and processing errors offer appropriate recovery actions; an error never becomes a clear verdict.
-
-### Video timeline and evidence dialog
-
-The native video player is muted and inline. A keyboard-operable range input uses a 0.001-second step, with numbered event markers and a separate wrapping list of event buttons. Selection seeks the local video and updates the selected event. Context playback starts up to three seconds before the selected event and stops up to three seconds after it, clipped to the video boundaries. Seeking requires a reattached local file and a browser-supported codec; evidence viewing remains available independently.
-
-Each evidence-image button opens a native modal dialog. It shows the frame time, fit/2× controls, a scrollable image viewport and a close button. Opening explicitly focuses the close button; a Tab/Shift+Tab wrap keeps keyboard navigation inside the dialog. Escape and close dismiss it and return focus to the opening control. Width is at most 1100px/94vw, changing to 96vw on mobile; the viewport is capped at 68dvh or 60dvh on mobile. Zoom changes image width to 200% for inspection, without animated scaling.
+The key field has a fine control border, control radius, 16px entry text and a visibility icon. Its grouped focus outline is 2px pale rose with a 2px offset. Other interactive elements have a 3px rose keyboard outline with a 4px offset. Upload uses the dark dashed target, with a lighter navy fill and pink border on hover or drag. The selected file and its actual preview replace the empty upload content.
 
 ### Navigation
-Navigation uses a green rail with a lighter selected item and visible hover feedback. Labels collapse at the tablet breakpoint and the shell becomes a compact top strip on mobile. Keep accessible names when visible labels disappear.
+Labelled icon buttons sit in a pale slate rounded track. The current section is white with deep rose text, a border and subtle shadow; hover adds a slate fill. Mobile uses a two-column grid rather than removing labels. `aria-current` identifies the active section.
+
+### Chips
+Assessment badges use labelled red, amber, green or neutral tonal pairs, a small radius and inline SVG icon. They are semantic annotations. Current-event selection uses matching assessment color. Legacy demo records retain explicit written demo markers; no demo-launcher or connectivity badge belongs in the header.
+
+### Cards / Containers
+White panels use the shared broad radius, fine border and restrained depth. The upload toolbar is a shallow horizontal panel. Result lists use bordered inset cards, selected assessment tones and compact timecodes. Evidence uses a two-column image grid, with a single image spanning the available width. Rule references use pale rose fill and an outline. The source/API/architecture sections reuse these surfaces; API output sits on dark slate.
+
+### Video timeline and evidence inspection
+Native video remains muted and inline. Millisecond timecode buttons, keyboard range input and labelled event markers select the same event. Evidence-image controls open the native modal frame viewer, with fit/2× inspection, scrolling and explicit close. Focus stays inside the modal and returns to the opening control. The dialog is at most 1100px/94vw, changing to 96vw on mobile; media inspection stays within the viewport.
 
 ### Processing and motion
-Processing shows server stages, a 1.3s linear spinner, and a 2.2s scan with `cubic-bezier(0.16, 1, 0.3, 1)`. Status text is announced through a polite live region; failures use alerts. Reduced-motion preference disables CSS animations/transitions, and JavaScript scrolling chooses automatic rather than smooth behavior through `scrollBehavior()`. Reduced motion does not disable user-requested video playback.
+Processing uses the existing 1.3s linear spinner and 2.2s scan with `cubic-bezier(0.16, 1, 0.3, 1)`. Controls use brief background feedback. Reduced-motion preference effectively disables CSS motion and chooses automatic JavaScript scrolling. It does not suppress explicitly requested video playback. State changes retain live announcements and alert semantics.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** preserve explicit demo and human-review language in status treatments.
-- **Do** retain visible keyboard focus and reduced-motion behavior.
-- **Do** use tabular numerals for timestamps and file metadata.
-- **Do** keep restoration, file reattachment, expiry and error recovery understandable on the same page.
+- **Do** use the rose action palette and cool slate/white surfaces from the implemented reference.
+- **Do** retain written assessment labels, explicit demo markers for restored records, visible focus and reduced-motion behavior.
+- **Do** align the header and main content to the same container and preserve readable stacked mobile panels.
+- **Do** use actual local video and returned evidence, including tabular timecodes.
 
 ### Don't:
-- **Don't** communicate a verdict through color alone.
-- **Don't** replace actual evidence frames with decorative imagery.
-- **Don't** infer a general display-text style from the smallest metadata captions.
-- **Don't** equate a reachable ML port with verified inference, or imply public deployment from configuration files.
+- **Don't** communicate an assessment through color alone or turn an error into a clear verdict.
+- **Don't** restore the removed header health indicator or separate demo-launch controls.
+- **Don't** import synthetic evidence, invented statistics or fabricated legal claims from the visual reference.
+- **Don't** treat 11px metadata as the default size for explanatory copy.

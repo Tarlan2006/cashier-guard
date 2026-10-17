@@ -1,0 +1,25 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "decision": {
+      "enum": [
+        "unreviewed",
+        "confirmed",
+        "rejected"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "comment": {
+      "default": "",
+      "maxLength": 4000,
+      "title": "Comment",
+      "type": "string"
+    }
+  },
+  "required": [
+    "decision"
+  ],
+  "title": "ReviewUpdate",
+  "type": "object"
+}

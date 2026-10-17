@@ -292,6 +292,155 @@ describe("result validation", () => {
       verdict: null,
     });
   });
+
+  it.each([undefined, null, "needs_review", "strong_evidence"] as const)(
+    "preserves assessment %s and its explanation without inventing fields",
+    (assessment) => {
+      const assessed = {
+        ...event,
+        ...(assessment === undefined ? {} : { assessment }),
+        ...(assessment === "strong_evidence"
+          ? { assessment_reason: "Демо: показаны явные признаки." }
+          : {}),
+      };
+      const value: Job = {
+        ...cleanJob,
+        verdict: "violation",
+        violations: [assessed],
+      };
+      expect(parseJob(value, "test-job")).toBe(value);
+      expect(value.violations[0].assessment).toBe(assessment);
+      if (assessment === undefined)
+        expect(value.violations[0]).not.toHaveProperty("assessment");
+    },
+  );
+
+  it.each([
+    { assessment: "unknown", assessment_reason: "No valid level" },
+    { assessment: 90, assessment_reason: "No confidence conversion" },
+    { assessment: "strong_evidence" },
+    { assessment: "strong_evidence", assessment_reason: null },
+    { assessment: "strong_evidence", assessment_reason: "  " },
+    { assessment: "needs_review", assessment_reason: "" },
+    { assessment: "needs_review", assessment_reason: 90 },
+  ])("rejects invalid assessment metadata %j", (metadata) => {
+    expect(() =>
+      parseJob(
+        {
+          ...cleanJob,
+          verdict: "violation",
+          violations: [{ ...event, ...metadata }],
+        } as Job,
+        "test-job",
+      ),
+    ).toThrow(ApiError);
+  });
+
+  it.each([
+    { ...cleanJob, error: "Conversion failed" },
+    { ...cleanJob, error_code: "ANALYSIS_TIMEOUT" },
+    { ...cleanJob, status: "processing" },
+    { ...cleanJob, status: "failed", error: "Timeout" },
+    { ...cleanJob, duration_sec: Number.NaN },
+    { ...cleanJob, duration_sec: -1 },
+  ])("rejects a contradictory or corrupt completed result: %j", (invalid) => {
+    expect(() => parseJob(invalid as Job, "test-job")).toThrow(ApiError);
+  });
+});
+
+describe("live strong-evidence boundary", () => {
+  // Real 2×2 JPEG. Full decoding and catalog provenance remain backend checks.
+  const jpeg =
+    "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAACAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD5/ooooA//2Q==";
+  const live: Job = {
+    ...cleanJob,
+    mode: "live",
+    verdict: "violation",
+    violations: [
+      {
+        ...event,
+        assessment: "strong_evidence",
+        assessment_reason: "Test-only evidence explanation.",
+        rule_id: "test-only-rule",
+        rule: {
+          id: "test-only-rule",
+          title: "Test fixture",
+          document: "Test fixture document",
+          section: "Test section",
+          url: "https://example.test/test-only-rule",
+          is_demo: false,
+        },
+        evidence_frames: [{ timestamp_sec: 3.125, image_base64: jpeg }],
+      },
+    ],
+  };
+
+  it("accepts a backend-resolved rule and correctly framed JPEG", () => {
+    expect(parseJob(live, "test-job")).toBe(live);
+  });
+
+  it("rejects a demo rule ID even when its is_demo flag is false", () => {
+    const rule = { ...live.violations[0].rule!, id: "demo:test-only-rule" };
+    expect(() =>
+      parseJob(
+        {
+          ...live,
+          violations: [{ ...live.violations[0], rule_id: rule.id, rule }],
+        },
+        "test-job",
+      ),
+    ).toThrow(ApiError);
+  });
+
+  it("requires a matching rule_id for live strong evidence while preserving legacy yellow responses", () => {
+    for (const rule_id of [undefined, null, "different-rule"]) {
+      const mismatched: Job = {
+        ...live,
+        violations: [{ ...live.violations[0], rule_id }],
+      };
+      expect(() => parseJob(mismatched, "test-job")).toThrow(ApiError);
+      const legacy: Job = {
+        ...mismatched,
+        violations: [{ ...mismatched.violations[0], assessment: undefined }],
+      };
+      expect(parseJob(legacy, "test-job")).toBe(legacy);
+    }
+  });
+
+  it.each([
+    null,
+    { ...live.violations[0].rule!, is_demo: true },
+    { ...live.violations[0].rule!, document: " " },
+    { ...live.violations[0].rule!, url: "javascript:alert(1)" },
+    { ...live.violations[0].rule!, url: "https://name:secret@example.test" },
+  ])("rejects an absent, demo or invalid live rule: %j", (rule) => {
+    expect(() =>
+      parseJob(
+        { ...live, violations: [{ ...live.violations[0], rule }] },
+        "test-job",
+      ),
+    ).toThrow(ApiError);
+  });
+
+  it.each(["", "not-base64", "dGVzdA==", jpeg.slice(0, -8)])(
+    "rejects an empty, invalid or incomplete JPEG envelope",
+    (image_base64) => {
+      expect(() =>
+        parseJob(
+          {
+            ...live,
+            violations: [
+              {
+                ...live.violations[0],
+                evidence_frames: [{ timestamp_sec: 3.125, image_base64 }],
+              },
+            ],
+          },
+          "test-job",
+        ),
+      ).toThrow(ApiError);
+    },
+  );
 });
 
 describe("timecode", () => {

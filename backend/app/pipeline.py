@@ -10,25 +10,18 @@ import httpx
 from pydantic import ValidationError
 
 from .config import Settings
+from .media import PipelineError, command, input_options, inspect_video
 from .models import AnalysisResult, EvidenceFrame, Observations, Rule, RuleCatalog, Violation
 
 DEMO_SCENARIOS = (
     "violation", "no_violation", "multiple_events", "three_frames", "long_text",
     "demo_rule", "slow", "ml_error", "invalid_ml_response",
+    "strong_evidence", "needs_review", "mixed_assessments",
 )
 MAX_ML_RESPONSE_BYTES = 32 * 1024 * 1024
 MAX_CATALOG_BYTES = 4 * 1024 * 1024
 ML_REQUEST_TIMEOUT_SECONDS = 120
 DEMO_RULES_PATH = Path(__file__).resolve().parents[2] / "contracts" / "fixtures" / "demo-rules.json"
-
-
-class PipelineError(ValueError):
-    """Safe, stable error contract; never expose ML response bodies or local paths."""
-
-    def __init__(self, code: str, message: str):
-        self.code = code
-        self.message = message
-        super().__init__(message)
 
 
 def load_rules(path: Path) -> list[Rule]:
@@ -45,46 +38,16 @@ def load_rules(path: Path) -> list[Rule]:
     return catalog.rules
 
 
-async def command(*args: str, timeout: float = 20) -> bytes:
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
-    except FileNotFoundError as error:
-        raise PipelineError("FFMPEG_UNAVAILABLE", "FFmpeg недоступен. Обратитесь к администратору сервиса.") from error
-    try:
-        stdout, _ = await asyncio.wait_for(process.communicate(), timeout)
-    except BaseException:
-        if process.returncode is None:
-            process.kill()
-        await process.wait()
-        raise
-    if process.returncode:
-        raise PipelineError("VIDEO_INVALID", "Не удалось прочитать видео. Загрузите корректный файл MOV или MP4.")
-    return stdout
-
-
 async def probe(path: Path) -> float:
-    raw = await command("ffprobe", "-v", "error", "-protocol_whitelist", "file,pipe", "-f", "mov", "-show_format", "-show_streams", "-of", "json", str(path))
-    try:
-        info = json.loads(raw)
-        if not any(stream.get("codec_type") == "video" for stream in info.get("streams", [])):
-            raise PipelineError("VIDEO_INVALID", "В файле нет видеодорожки. Выберите другую запись.")
-        duration = float(info.get("format", {}).get("duration", 0))
-    except (TypeError, ValueError, KeyError) as error:
-        if isinstance(error, PipelineError):
-            raise
-        raise PipelineError("VIDEO_INVALID", "Не удалось определить длительность видео.") from error
-    if not math.isfinite(duration) or not 0 < duration <= 600:
-        raise PipelineError("VIDEO_DURATION_INVALID", "Нужна запись длительностью от 1 кадра до 10 минут.")
-    return duration
+    return (await inspect_video(path)).duration
 
 
 async def frame_at(path: Path, timestamp: float) -> EvidenceFrame:
     jpeg = await command(
-        "ffmpeg", "-v", "error", "-ss", str(timestamp), "-protocol_whitelist", "file,pipe", "-f", "mov", "-i", str(path),
+        "ffmpeg", "-nostdin", "-v", "error", "-seek_timestamp", "1", "-ss", str(timestamp), *input_options("mov"), "-i", str(path.resolve()),
         "-map", "0:v:0", "-frames:v", "1", "-an", "-vf", "scale='min(960,iw)':-2",
         "-f", "image2pipe", "-vcodec", "mjpeg", "pipe:1",
+        max_stdout=4 * 1024 * 1024,
     )
     try:
         return EvidenceFrame(timestamp_sec=timestamp, image_base64=base64.b64encode(jpeg).decode())
@@ -98,6 +61,9 @@ async def _request_json(client: httpx.AsyncClient, url: str, stage: str, **kwarg
         async with asyncio.timeout(ML_REQUEST_TIMEOUT_SECONDS):
             async with client.stream("POST", url, **kwargs) as response:
                 response.raise_for_status()
+                if (response.headers.get("x-analysis-status", "").lower() in {"partial", "incomplete"}
+                    or response.headers.get("x-analysis-complete", "").lower() in {"false", "0", "no"}):
+                    raise PipelineError(f"{stage.upper()}_INCOMPLETE", f"{stage.upper()} сообщил о неполном анализе. Результат не определён.")
                 content_length = response.headers.get("content-length")
                 if content_length and int(content_length) > MAX_ML_RESPONSE_BYTES:
                     raise PipelineError(f"{stage.upper()}_INVALID_RESPONSE", f"{stage.upper()} вернул слишком большой ответ.")
@@ -133,8 +99,10 @@ def _validate_observations(payload: object, duration: float) -> Observations:
 
 def _validate_result(payload: object, duration: float, rules: list[Rule]) -> AnalysisResult:
     try:
+        if not isinstance(payload, dict) or "violations" not in payload:
+            raise ValueError("ML2 must explicitly return violations, including an empty list")
         result = AnalysisResult.model_validate(payload)
-    except ValidationError as error:
+    except ValueError as error:
         raise PipelineError("ML2_INVALID_RESPONSE", "ML2 вернул ответ, не соответствующий контракту.") from error
     catalog = {rule.id: rule for rule in rules}
     for violation in result.violations:
@@ -160,12 +128,14 @@ async def _demo(path: Path, duration: float, scenario: str, on_stage: Callable[[
     on_stage("matching")
     await asyncio.sleep(0.6)
     if scenario == "no_violation":
-        return AnalysisResult(verdict="no_violation")
-    fractions = (0.25, 0.5, 0.75) if scenario == "multiple_events" else (0.5,)
+        return AnalysisResult(verdict="no_violation", violations=[])
+    video_start = (await inspect_video(path)).video_start_time
+    fractions = ((0.2, 0.4, 0.6, 0.8) if scenario == "mixed_assessments" else
+                 (0.25, 0.5, 0.75) if scenario == "multiple_events" else (0.5,))
     violations = []
     for index, fraction in enumerate(fractions):
-        timestamp = duration * fraction
-        frame_times = (duration * 0.4, timestamp, duration * 0.6) if scenario == "three_frames" else (timestamp,)
+        timestamp = video_start + (duration - video_start) * fraction
+        frame_times = (video_start + (duration - video_start) * 0.4, timestamp, video_start + (duration - video_start) * 0.6) if scenario == "three_frames" else (timestamp,)
         frames = [await frame_at(path, time) for time in frame_times]
         title = "Демонстрационное событие" if len(fractions) == 1 else f"Демонстрационное событие {index + 1}"
         description = ("Тестовая карточка для проверки интерфейса. Кадр взят из загруженного видео; "
@@ -176,11 +146,17 @@ async def _demo(path: Path, duration: float, scenario: str, on_stage: Callable[[
                             "переносы строк, раскрытие деталей и сохранение доступа к доказательствам. "
                             "Он не описывает реальное нарушение и не содержит нормативного заключения.") * 6
         rule = None
-        if scenario == "demo_rule":
+        assessment = "strong_evidence" if scenario == "strong_evidence" or (scenario == "mixed_assessments" and index % 2 == 0) else "needs_review"
+        reason = ("ВЫМЫШЛЕННАЯ demo-оценка: заглушка показывает убедительные визуальные признаки и тестовое правило. "
+                  "Это пример оформления, а не оценка действий на записи; решение принимает человек.") if assessment == "strong_evidence" else (
+                  "ВЫМЫШЛЕННАЯ demo-оценка: заглушка показывает неоднозначное событие, требующее уточнения человеком. "
+                  "Это пример оформления, а не вывод модели о записи.")
+        if scenario == "demo_rule" or assessment == "strong_evidence":
             catalog = RuleCatalog.model_validate_json(DEMO_RULES_PATH.read_text())
             rule = catalog.rules[0]
         violations.append(Violation(type=title, timecode_sec=timestamp, description=description,
-                                    evidence_frames=frames, rule_id=rule.id if rule else None, rule=rule))
+                                    evidence_frames=frames, rule_id=rule.id if rule else None, rule=rule,
+                                    assessment=assessment, assessment_reason=reason))
     return AnalysisResult(verdict="violation", violations=violations)
 
 
@@ -208,7 +184,7 @@ async def analyze(
         async with httpx.AsyncClient(timeout=httpx.Timeout(90, connect=5, read=90, write=30, pool=5), trust_env=False, follow_redirects=False) as client:
             with path.open("rb") as video:
                 first = await _request_json(client, f"{settings.ml1_url.rstrip('/')}/analyze", "ml1",
-                                            files={"file": ("video.mov", video, "video/quicktime")})
+                                            files={"file": ("video.mp4", video, "video/mp4")})
             observations = _validate_observations(first, duration)
             stage("matching")
             second = await _request_json(client, f"{settings.ml2_url.rstrip('/')}/match", "ml2", json={

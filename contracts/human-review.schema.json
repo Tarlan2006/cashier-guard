@@ -1,0 +1,34 @@
+{
+  "properties": {
+    "decision": {
+      "default": "unreviewed",
+      "enum": [
+        "unreviewed",
+        "confirmed",
+        "rejected"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "comment": {
+      "default": "",
+      "maxLength": 4000,
+      "title": "Comment",
+      "type": "string"
+    },
+    "updated_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Updated At"
+    }
+  },
+  "title": "HumanReview",
+  "type": "object"
+}

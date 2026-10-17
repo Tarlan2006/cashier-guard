@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+from types import SimpleNamespace
 from io import BytesIO
 
 import httpx
@@ -53,6 +54,8 @@ def test_live_adapter_validates_and_uses_trusted_catalog(tmp_path, monkeypatch, 
         seen.append(request.url.path)
         if request.url.path == "/analyze":
             assert b'name="file"' in request.read()
+            assert b'filename="video.mp4"' in request.read()
+            assert b'Content-Type: video/mp4' in request.read()
             return httpx.Response(200, json=ML1)
         payload = json.loads(request.read())
         assert payload["rules"] == [RULE]
@@ -189,8 +192,11 @@ def test_demo_scenarios_use_uploaded_frames(tmp_path, monkeypatch, scenario, cou
     async def fake_frame(path, timestamp):
         captured.append((path, timestamp))
         return EvidenceFrame(**{**FRAME, "timestamp_sec": timestamp})
+    async def fake_inspect(path):
+        return SimpleNamespace(video_start_time=0)
     monkeypatch.setattr(pipeline.asyncio, "sleep", sleep)
     monkeypatch.setattr(pipeline, "frame_at", fake_frame)
+    monkeypatch.setattr(pipeline, "inspect_video", fake_inspect)
     path = tmp_path / "synthetic.mov"
     result = asyncio.run(analyze(path, 12.345, Settings(api_key="test", mode="demo"), scenario, lambda _: None))
     assert len(result.violations) == count
@@ -265,3 +271,19 @@ def test_synthetic_video_produces_three_decodable_evidence_frames(tmp_path, monk
         with Image.open(BytesIO(base64.b64decode(frame.image_base64))) as image:
             image.load()
             assert image.format == "JPEG" and image.size == (96, 64)
+
+@pytest.mark.parametrize('headers', [
+    {'X-Analysis-Status':'partial'}, {'X-Analysis-Status':'incomplete'},
+    {'X-Analysis-Complete':'false'}, {'X-Analysis-Complete':'0'},
+])
+def test_incomplete_analysis_never_becomes_empty_success(tmp_path,monkeypatch,headers):
+    video, settings = live_settings(tmp_path)
+    seen=[]
+    def respond(request):
+        seen.append(request.url.path)
+        return httpx.Response(200,json={'schema_version':'1.0','events':[]},headers=headers)
+    install_transport(monkeypatch,respond)
+    with pytest.raises(PipelineError) as error:
+        asyncio.run(analyze(video,10,settings,'violation',lambda _:None))
+    assert error.value.code=='ML1_INCOMPLETE'
+    assert seen==['/analyze']

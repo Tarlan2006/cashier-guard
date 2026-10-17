@@ -21,6 +21,200 @@
       "title": "EvidenceFrame",
       "type": "object"
     },
+    "HumanReview": {
+      "properties": {
+        "decision": {
+          "default": "unreviewed",
+          "enum": [
+            "unreviewed",
+            "confirmed",
+            "rejected"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "comment": {
+          "default": "",
+          "maxLength": 4000,
+          "title": "Comment",
+          "type": "string"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        }
+      },
+      "title": "HumanReview",
+      "type": "object"
+    },
+    "ReviewedEvent": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "assessment": {
+                "const": "strong_evidence"
+              }
+            },
+            "required": [
+              "assessment"
+            ]
+          },
+          "then": {
+            "properties": {
+              "assessment_reason": {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "assessment_reason"
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "type": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        },
+        "timecode_sec": {
+          "minimum": 0,
+          "title": "Timecode Sec",
+          "type": "number"
+        },
+        "description": {
+          "maxLength": 8000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "evidence_frames": {
+          "items": {
+            "$ref": "#/$defs/EvidenceFrame"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Evidence Frames",
+          "type": "array"
+        },
+        "rule_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Id"
+        },
+        "rule": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Rule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "assessment": {
+          "anyOf": [
+            {
+              "enum": [
+                "strong_evidence",
+                "needs_review"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ML2 evidence assessment. Missing/null is legacy: display needs_review without inventing an assessment.",
+          "title": "Assessment"
+        },
+        "assessment_reason": {
+          "anyOf": [
+            {
+              "maxLength": 8000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ML2 explanation of the assessment. Required for strong_evidence; never a confidence percentage.",
+          "title": "Assessment Reason"
+        },
+        "event_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Id"
+        },
+        "category_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category Id"
+        },
+        "human_review": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HumanReview"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "type",
+        "timecode_sec",
+        "description",
+        "evidence_frames"
+      ],
+      "title": "ReviewedEvent",
+      "type": "object"
+    },
     "Rule": {
       "properties": {
         "id": {
@@ -82,69 +276,6 @@
       ],
       "title": "Rule",
       "type": "object"
-    },
-    "Violation": {
-      "properties": {
-        "type": {
-          "maxLength": 8000,
-          "minLength": 1,
-          "title": "Type",
-          "type": "string"
-        },
-        "timecode_sec": {
-          "minimum": 0,
-          "title": "Timecode Sec",
-          "type": "number"
-        },
-        "description": {
-          "maxLength": 8000,
-          "minLength": 1,
-          "title": "Description",
-          "type": "string"
-        },
-        "evidence_frames": {
-          "items": {
-            "$ref": "#/$defs/EvidenceFrame"
-          },
-          "maxItems": 3,
-          "minItems": 1,
-          "title": "Evidence Frames",
-          "type": "array"
-        },
-        "rule_id": {
-          "anyOf": [
-            {
-              "maxLength": 200,
-              "minLength": 1,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Rule Id"
-        },
-        "rule": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Rule"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        }
-      },
-      "required": [
-        "type",
-        "timecode_sec",
-        "description",
-        "evidence_frames"
-      ],
-      "title": "Violation",
-      "type": "object"
     }
   },
   "properties": {
@@ -202,6 +333,19 @@
       "default": null,
       "title": "Duration Sec"
     },
+    "source_time_offset_sec": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Original container timeline origin. Add to normalized event time for source media timestamps; browsers may rebase their playback timeline. Null for older jobs.",
+      "title": "Source Time Offset Sec"
+    },
     "size_bytes": {
       "anyOf": [
         {
@@ -233,7 +377,7 @@
     },
     "violations": {
       "items": {
-        "$ref": "#/$defs/Violation"
+        "$ref": "#/$defs/ReviewedEvent"
       },
       "title": "Violations",
       "type": "array"
@@ -317,6 +461,52 @@
       ],
       "default": null,
       "title": "Completed At"
+    },
+    "video_available": {
+      "default": false,
+      "title": "Video Available",
+      "type": "boolean"
+    },
+    "video_expires_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Video Expires At"
+    },
+    "video_size_bytes": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Video Size Bytes"
+    },
+    "video_unavailable_reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "expired",
+            "missing",
+            "not_retained"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Video Unavailable Reason"
     }
   },
   "required": [

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, parseJob, request } from "../api";
-import type { Job } from "../api";
+import type { Job, HumanReview } from "../api";
 export const ACTIVE_JOB_KEY = "cashier-guard-current-job";
 export const API_KEY_STORAGE = "cashier-guard-key";
 type SavedJob = { job_id: string; submitted_at: number };
@@ -52,7 +52,8 @@ export function useReview(key: string) {
   keyRef.current = key;
   useEffect(() => {
     try {
-      sessionStorage.setItem(API_KEY_STORAGE, key);
+      if (key) sessionStorage.setItem(API_KEY_STORAGE, key);
+      else sessionStorage.removeItem(API_KEY_STORAGE);
     } catch {
       /* May be disabled. */
     }
@@ -70,7 +71,7 @@ export function useReview(key: string) {
         if (!keyRef.current.trim())
           throw new ApiError(
             "auth",
-            "Введите ключ доступа, чтобы восстановить проверку.",
+            "Настройте подключение в настройках, чтобы восстановить проверку.",
           );
         const response = parseJob(
           await request<Job>(`/jobs/${saved.job_id}`, keyRef.current.trim(), {
@@ -151,14 +152,16 @@ export function useReview(key: string) {
     setPhase("idle");
   }, []);
   const submit = useCallback(
-    async (file: File, scenario: string) => {
+    async (file: File) => {
       if (
         sending.current ||
         ["uploading", "processing", "restoring"].includes(phase)
       )
         return;
       if (!keyRef.current.trim()) {
-        setIssue(new ApiError("auth", "Введите ключ доступа."));
+        setIssue(
+          new ApiError("auth", "Настройте подключение для проверки видео."),
+        );
         return;
       }
       sending.current = true;
@@ -175,7 +178,6 @@ export function useReview(key: string) {
       try {
         const body = new FormData();
         body.append("file", file);
-        body.append("demo_scenario", scenario);
         const response = await request<{ job_id: string }>(
           "/analyze",
           keyRef.current.trim(),
@@ -218,7 +220,38 @@ export function useReview(key: string) {
       setResumeVersion((value) => value + 1);
     }
   }, [saved]);
+  const open = useCallback((jobId: string) => {
+    generation.current++;
+    controller.current?.abort();
+    sending.current = false;
+    const next = { job_id: jobId, submitted_at: Date.now() };
+    setJob(null);
+    setIssue(null);
+    setSaved(next);
+    save(next);
+    setPhase("restoring");
+    setResumeVersion((value) => value + 1);
+  }, []);
+  const applyHumanReview = useCallback(
+    (jobId: string, eventId: string, humanReview: HumanReview) => {
+      setJob((current) =>
+        current?.job_id === jobId
+          ? {
+              ...current,
+              violations: current.violations.map((event) =>
+                event.event_id === eventId
+                  ? { ...event, human_review: humanReview }
+                  : event,
+              ),
+            }
+          : current,
+      );
+    },
+    [],
+  );
   return {
+    open,
+    applyHumanReview,
     job,
     phase,
     issue,

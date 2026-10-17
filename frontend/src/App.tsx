@@ -3,34 +3,62 @@ import {
   AlertCircle,
   ArrowRight,
   ChevronRight,
-  CircleHelp,
+  BookOpen,
+  Cpu,
+  Terminal,
+  Video,
+  History,
+  BarChart3,
   Eye,
-  EyeOff,
-  FileVideo2,
   Info,
-  KeyRound,
   LoaderCircle,
   RefreshCw,
   ScanLine,
   ShieldCheck,
-  TestTubeDiagonal,
+  Settings,
   Upload,
 } from "lucide-react";
-import { scrollBehavior } from "./api";
 import type { Frame } from "./api";
 import { readKey, useReview } from "./hooks/useReview";
 import { useServiceStatus } from "./hooks/useServiceStatus";
-import { DEMO_SCENARIOS } from "./demo";
+import {
+  HistoryPanel,
+  AnalyticsPanel,
+  emptyFilters,
+} from "./components/HistoryAnalytics";
+import type { HistoryFilters } from "./components/HistoryAnalytics";
+import { ArchivedVideo } from "./components/ArchivedVideo";
 import { FrameDialog } from "./components/FrameDialog";
 import { ResultPanel } from "./components/ResultPanel";
+import { ReviewSummary } from "./components/ReviewSummary";
+import { SettingsPanel } from "./components/SettingsPanel";
+import { WorkspaceSections } from "./components/WorkspaceSections";
+import type { WorkspaceTab } from "./components/WorkspaceSections";
 import { VideoReview } from "./components/VideoReview";
 import type { VideoHandle } from "./components/VideoReview";
+import {
+  isSupportedVideoFilename,
+  VIDEO_ACCEPT,
+  VIDEO_FORMATS,
+} from "./videoFormats";
+
+const sections = [
+  { id: "workspace", label: "Проверка видео", icon: Video },
+  { id: "history", label: "История", icon: History },
+  { id: "analytics", label: "Аналитика", icon: BarChart3 },
+  { id: "regulations", label: "Нормативы РК", icon: BookOpen },
+  { id: "api", label: "API", icon: Terminal },
+  { id: "architecture", label: "Архитектура", icon: Cpu },
+  { id: "settings", label: "Настройки", icon: Settings },
+] as const;
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("workspace");
+  const [historyFilters, setHistoryFilters] =
+    useState<HistoryFilters>(emptyFilters);
   const [key, setKey] = useState(readKey);
-  const [showKey, setShowKey] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [scenario, setScenario] = useState("violation");
+  const [canPreview, setCanPreview] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [fileError, setFileError] = useState("");
   const [activeEvent, setActiveEvent] = useState(0);
@@ -38,25 +66,34 @@ export default function App() {
   const review = useReview(key);
   const service = useServiceStatus();
   const input = useRef<HTMLInputElement>(null);
-  const keyInput = useRef<HTMLInputElement>(null);
   const details = useRef<HTMLDetailsElement>(null);
   const preview = useRef<VideoHandle>(null);
   const reattaching = useRef(false);
   const maxMB = service.health?.max_upload_mb ?? 100;
-  const isDemo = (review.job?.mode ?? service.health?.mode) === "demo";
-  const backendIsDemo = service.health?.mode === "demo";
+  const analysisAvailable =
+    service.health?.mode === "live" &&
+    service.readiness?.mode === "live" &&
+    service.readiness.ready === true;
 
   useEffect(() => {
     setActiveEvent(0);
     setFrame(null);
   }, [review.job?.job_id]);
+
   useEffect(() => {
-    if (review.issue?.kind === "auth") keyInput.current?.focus();
-  }, [review.issue]);
+    const heading = Array.from(
+      document.querySelectorAll<HTMLElement>("main h1"),
+    ).find((item) => !item.closest("[hidden]"));
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    }
+  }, [activeTab]);
 
   function reset() {
     review.reset();
     setFile(null);
+    setCanPreview(false);
     setFileError("");
     setActiveEvent(0);
     setFrame(null);
@@ -64,8 +101,10 @@ export default function App() {
   }
   function selectFile(next?: File, attach = false) {
     if (!next || review.busy) return;
-    if (!/\.(mov|mp4)$/i.test(next.name)) {
-      setFileError("Выберите видео в формате MOV или MP4.");
+    if (!isSupportedVideoFilename(next.name)) {
+      setFileError(
+        `Поддерживаются ${VIDEO_FORMATS}. Выберите один из этих форматов.`,
+      );
       return;
     }
     if (!next.size) {
@@ -92,6 +131,7 @@ export default function App() {
       setActiveEvent(0);
     }
     setFile(next);
+    setCanPreview(false);
     setFileError("");
   }
   function pick(attach = false) {
@@ -105,12 +145,7 @@ export default function App() {
   }
   const hasTask =
     !!file || !!review.restoredId || !!review.job || !!review.issue;
-  const canSubmit =
-    !!file &&
-    !!key.trim() &&
-    !!service.health &&
-    service.readiness?.ready === true &&
-    !review.busy;
+  const canSubmit = !!file && !!key.trim() && analysisAvailable && !review.busy;
   const checkNames: Record<string, string> = {
     ffmpeg: "FFmpeg",
     rules: "Каталог правил",
@@ -123,132 +158,122 @@ export default function App() {
       <a href="#main" className="skip-link">
         Перейти к проверке видео
       </a>
-      <aside className="sidebar" aria-label="Навигация">
-        <div className="brand">
-          <ShieldCheck size={32} strokeWidth={1.65} />
-          <span>
-            cashier<span className="brand-light">guard</span>
-            <small>Контроль кассовых операций</small>
-          </span>
-        </div>
-        <div className="sidebar-rule" />
-        <nav>
-          <button
-            className="nav-item selected"
-            onClick={() =>
-              document
-                .getElementById("main")
-                ?.scrollIntoView({ behavior: scrollBehavior() })
-            }
-            aria-current="page"
-          >
-            <ScanLine size={19} />
-            Проверка видео
-            <ChevronRight size={15} />
-          </button>
-        </nav>
-        <div className="sidebar-bottom">
-          <button
-            className="nav-item help"
-            onClick={() => {
-              if (details.current) {
-                details.current.open = true;
-                details.current.scrollIntoView({ behavior: scrollBehavior() });
-              }
-            }}
-          >
-            <CircleHelp size={18} />
-            Как это работает
-          </button>
-          <div className="sidebar-note">
-            <ShieldCheck size={17} />
-            <span>
-              Решение принимает человек.
-              <br />
-              Сервис помогает с проверкой.
-            </span>
+      <header className="topbar">
+        <div className="header-inner">
+          <div className="brand">
+            <div className="brand-symbol">
+              <Eye size={21} strokeWidth={1.8} />
+            </div>
+            <div>
+              <div className="brand-name">
+                Cashier<span>Guard</span>
+              </div>
+              <small>AI-контроль кассовой дисциплины</small>
+            </div>
           </div>
+          <nav className="top-navigation" aria-label="Разделы">
+            {sections.map((section) => {
+              const Icon = section.icon;
+              return (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveTab(section.id)}
+                  aria-current={activeTab === section.id ? "page" : undefined}
+                >
+                  <Icon size={15} />
+                  <span>{section.label}</span>
+                </button>
+              );
+            })}
+          </nav>
         </div>
-      </aside>
+      </header>
       <div className="main-shell">
-        <header className="topbar">
+        <main id="main">
           <div className="breadcrumb">
             Рабочее пространство
-            <ChevronRight size={14} />
-            <span>Проверка видео</span>
+            <ChevronRight size={13} />
+            <span>
+              {sections.find((section) => section.id === activeTab)?.label}
+            </span>
           </div>
-          <div
-            className={`connection ${service.health ? "online" : ""}`}
-            role="status"
-          >
-            <span />
-            {service.health
-              ? "Backend доступен"
-              : service.checked
-                ? "Нет соединения"
-                : "Подключение…"}
-          </div>
-        </header>
-        <main id="main">
-          <div className="page-heading">
-            <div>
-              <h1>Проверка видео</h1>
-              <p>
-                События, точное время и кадры для проверки кассовых операций.
-              </p>
-            </div>
-            {hasTask && (
-              <button
-                className="button secondary new-check"
-                onClick={reset}
-                disabled={review.busy}
-              >
-                <RefreshCw size={17} />
-                Новая проверка
-              </button>
-            )}
-          </div>
-          {isDemo && (
-            <div className="demo-notice">
-              <TestTubeDiagonal size={21} />
+          <div hidden={activeTab !== "workspace"}>
+            <div className="page-heading">
               <div>
-                <strong>Демонстрационный режим</strong>
-                <span>
-                  События и источники вымышлены. Используйте синтетическое
-                  видео: модели ещё не подключены.
-                </span>
+                <h1>Проверка видео</h1>
+                <p>
+                  События, точное время и кадры для проверки кассовых операций.
+                </p>
               </div>
-              <span className="demo-label">ДЕМО</span>
             </div>
-          )}
-          {service.checked &&
-            (!service.health || !service.readiness?.ready) && (
+            <div className="workspace-toolbar">
+              <div className="toolbar-file">
+                <Video size={21} />
+                <div>
+                  <strong>Видеозапись кассовых операций</strong>
+                  <small>
+                    {file
+                      ? `Выбрано: ${file.name}`
+                      : review.job
+                        ? `Сохранённая проверка: ${review.job.filename}`
+                        : "Выберите запись на компьютере · до 10 минут"}
+                  </small>
+                </div>
+              </div>
+              <div className="toolbar-actions">
+                {hasTask && (
+                  <button
+                    className="button secondary new-check"
+                    onClick={reset}
+                    disabled={review.busy}
+                  >
+                    <RefreshCw size={17} />
+                    Новая проверка
+                  </button>
+                )}
+                <button
+                  className="button primary"
+                  onClick={() => pick()}
+                  disabled={review.busy}
+                >
+                  <Upload size={16} />
+                  {file ? "Заменить видео" : "Загрузить видео"}
+                </button>
+              </div>
+            </div>
+            {service.checked && !analysisAvailable && (
               <div className="alert error readiness-alert" role="alert">
                 <AlertCircle size={20} />
                 <div>
                   <strong>
                     {!service.health
                       ? "Сервер недоступен"
-                      : "Обработка пока недоступна"}
+                      : "Анализ видео пока недоступен"}
                   </strong>
                   <p>
                     {!service.health
                       ? "Проверьте подключение и запуск backend. Сохранённая проверка не потеряна."
-                      : !service.readiness
-                        ? "Не удалось проверить компоненты обработки."
-                        : "Проверьте перечисленные компоненты перед новой загрузкой."}
+                      : service.health.mode !== "live" ||
+                          service.readiness?.mode === "demo"
+                        ? "Реальные модели анализа ещё не подключены. Вы можете выбрать и просмотреть видео."
+                        : !service.readiness
+                          ? "Не удалось проверить готовность анализа. Повторите проверку подключения."
+                          : "Проверьте перечисленные компоненты. Пока доступен только просмотр видео."}
                   </p>
-                  {service.readiness && (
-                    <ul>
-                      {Object.entries(service.readiness.checks)
-                        .filter(([, check]) => !check.ready)
-                        .map(([name, check]) => (
-                          <li key={name}>
-                            {checkNames[name] ?? name}: {check.detail}
-                          </li>
-                        ))}
-                    </ul>
-                  )}
+                  {service.readiness &&
+                    Object.values(service.readiness.checks).some(
+                      (check) => !check.ready,
+                    ) && (
+                      <ul>
+                        {Object.entries(service.readiness.checks)
+                          .filter(([, check]) => !check.ready)
+                          .map(([name, check]) => (
+                            <li key={name}>
+                              {checkNames[name] ?? name}: {check.detail}
+                            </li>
+                          ))}
+                      </ul>
+                    )}
                 </div>
                 <button className="text-button" onClick={service.refresh}>
                   Повторить
@@ -256,253 +281,276 @@ export default function App() {
               </div>
             )}
 
-          <div className="workspace">
-            <section className="upload-panel" aria-labelledby="upload-heading">
-              <div className="panel-heading">
-                <h2 id="upload-heading">Видеозапись</h2>
-                <span>MOV / MP4 · до {maxMB} МБ</span>
-              </div>
-              <div className="form-actions">
-                <button
-                  className="button primary analyze-button"
-                  onClick={() => {
-                    if (file) {
-                      setFileError("");
-                      void review.submit(file, scenario);
-                    }
-                  }}
-                  disabled={!canSubmit}
-                >
-                  {review.busy ? (
-                    <LoaderCircle size={19} className="spin" />
-                  ) : (
-                    <ScanLine size={19} />
-                  )}
-                  {review.phase === "uploading"
-                    ? "Загружаем видео…"
-                    : review.phase === "restoring"
-                      ? "Восстанавливаем проверку…"
-                      : review.busy
-                        ? "Проверяем запись…"
-                        : backendIsDemo
-                          ? "Запустить демопроверку"
-                          : "Проверить видео"}
-                  {!review.busy && <ArrowRight size={18} />}
-                </button>
-                <p className="privacy-note">
-                  <ShieldCheck size={15} />
+            {review.phase === "done" && !review.issue && review.job && (
+              <ReviewSummary
+                job={review.job}
+                onShowApi={() => setActiveTab("api")}
+              />
+            )}
+            <div className="workspace">
+              <section
+                className="upload-panel"
+                aria-labelledby="upload-heading"
+              >
+                <div className="panel-heading">
+                  <h2 id="upload-heading">Видеозапись</h2>
                   <span>
-                    Без облачных AI-сервисов. Общий бюджет — до 5 минут.
+                    {VIDEO_FORMATS} · до {maxMB} МБ
                   </span>
-                </p>
-              </div>
-              <input
-                ref={input}
-                id="video-file"
-                className="visually-hidden"
-                type="file"
-                accept=".mov,.mp4,video/quicktime,video/mp4"
-                disabled={review.busy}
-                tabIndex={-1}
-                aria-label="Видео для проверки"
-                onChange={(e) => {
-                  selectFile(e.target.files?.[0], reattaching.current);
-                  e.target.value = "";
+                </div>
+                <input
+                  ref={input}
+                  id="video-file"
+                  className="visually-hidden"
+                  type="file"
+                  accept={VIDEO_ACCEPT}
+                  disabled={review.busy}
+                  tabIndex={-1}
+                  aria-label="Видео для проверки"
+                  onChange={(e) => {
+                    selectFile(e.target.files?.[0], reattaching.current);
+                    e.target.value = "";
+                  }}
+                />
+                {file ? (
+                  <VideoReview
+                    ref={preview}
+                    file={file}
+                    events={review.job?.violations ?? []}
+                    activeEvent={activeEvent}
+                    normalizedDuration={review.job?.duration_sec}
+                    sourceTimeOffset={review.job?.source_time_offset_sec}
+                    onSelect={setActiveEvent}
+                    onPreviewAvailabilityChange={setCanPreview}
+                    onRemove={() => {
+                      setFile(null);
+                      setCanPreview(false);
+                      setFileError("");
+                    }}
+                    disabled={review.busy}
+                  />
+                ) : review.job ? (
+                  <ArchivedVideo
+                    ref={preview}
+                    job={review.job}
+                    apiKey={key}
+                    activeEvent={activeEvent}
+                    onSelect={setActiveEvent}
+                    onPreviewAvailabilityChange={setCanPreview}
+                    onPick={() => pick(true)}
+                    disabled={review.busy}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    disabled={review.busy}
+                    className={`dropzone ${dragging ? "dragging" : ""}`}
+                    onClick={() => pick()}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (!review.busy) setDragging(true);
+                    }}
+                    onDragLeave={() => setDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragging(false);
+                      selectFile(e.dataTransfer.files[0]);
+                    }}
+                  >
+                    <div className="upload-symbol">
+                      <Upload size={29} strokeWidth={1.5} />
+                    </div>
+                    <strong>
+                      {dragging
+                        ? "Отпустите файл здесь"
+                        : "Перетащите видео сюда"}
+                    </strong>
+                    <span className="file-pick">
+                      Выбрать видео
+                      <ArrowRight size={17} />
+                    </span>
+                    <small>До 10 минут · запись кассовых операций</small>
+                  </button>
+                )}
+                {fileError && (
+                  <div className="form-error" role="alert">
+                    <AlertCircle size={18} />
+                    <span>{fileError}</span>
+                  </div>
+                )}
+                {file && (
+                  <div className="form-actions">
+                    {!key.trim() && (
+                      <div className="connection-prompt" id="connection-prompt">
+                        <p>Настройте подключение для проверки видео</p>
+                        <a
+                          href="#settings"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setActiveTab("settings");
+                          }}
+                        >
+                          Открыть настройки
+                        </a>
+                      </div>
+                    )}
+                    <button
+                      className="button primary analyze-button"
+                      onClick={() => {
+                        if (file && canSubmit) {
+                          setFileError("");
+                          void review.submit(file);
+                        }
+                      }}
+                      disabled={!canSubmit}
+                      aria-describedby={
+                        !key.trim() ? "connection-prompt" : undefined
+                      }
+                    >
+                      {review.busy ? (
+                        <LoaderCircle size={19} className="spin" />
+                      ) : (
+                        <ScanLine size={19} />
+                      )}
+                      {review.phase === "uploading"
+                        ? "Загружаем видео…"
+                        : review.phase === "restoring"
+                          ? "Восстанавливаем проверку…"
+                          : review.busy
+                            ? review.job?.stage === "preparing"
+                              ? "Подготавливаем видео…"
+                              : "Проверяем запись…"
+                            : "Проверить видео"}
+                      {!review.busy && <ArrowRight size={18} />}
+                    </button>
+                    <p className="privacy-note">
+                      <ShieldCheck size={15} />
+                      <span>
+                        Без облачных AI-сервисов. Общий бюджет — до 5 минут.
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </section>
+              <ResultPanel
+                hideSummary
+                job={review.job}
+                phase={review.phase}
+                issue={review.issue}
+                activeEvent={activeEvent}
+                onSelect={chooseEvent}
+                onSeek={(time) => preview.current?.seek(time)}
+                canPlay={canPreview}
+                onFrame={setFrame}
+                onResume={review.resume}
+                canResume={review.canResume}
+                onReset={reset}
+                hasKey={!!key.trim()}
+                onOpenSettings={() => setActiveTab("settings")}
+                apiKey={key}
+                onReviewSaved={(eventId, value) => {
+                  if (review.job)
+                    review.applyHumanReview(review.job.job_id, eventId, value);
                 }}
               />
-              {file ? (
-                <VideoReview
-                  ref={preview}
-                  file={file}
-                  events={review.job?.violations ?? []}
-                  activeEvent={activeEvent}
-                  onSelect={setActiveEvent}
-                  onRemove={() => {
-                    setFile(null);
-                    setFileError("");
-                  }}
-                  disabled={review.busy}
-                />
-              ) : review.job ? (
-                <div className="restored-file">
-                  <FileVideo2 size={27} />
-                  <strong>{review.job.filename}</strong>
-                  <p>
-                    Проверка восстановлена. Браузер не сохраняет доступ к
-                    локальному видео после обновления страницы.
-                  </p>
-                  <button
-                    className="button secondary"
-                    onClick={() => pick(true)}
-                    disabled={review.busy}
-                  >
-                    Выбрать файл для просмотра
-                  </button>
-                  <small>
-                    Это не запустит анализ повторно. Имя и размер помогают
-                    выбрать исходную запись, но не подтверждают её содержимое.
-                  </small>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  disabled={review.busy}
-                  className={`dropzone ${dragging ? "dragging" : ""}`}
-                  onClick={() => pick()}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    if (!review.busy) setDragging(true);
-                  }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDragging(false);
-                    selectFile(e.dataTransfer.files[0]);
-                  }}
-                >
-                  <div className="upload-symbol">
-                    <Upload size={29} strokeWidth={1.5} />
-                  </div>
-                  <strong>
-                    {dragging
-                      ? "Отпустите файл здесь"
-                      : "Перетащите видео сюда"}
-                  </strong>
-                  <span className="file-pick">
-                    Выбрать видео
-                    <ArrowRight size={17} />
-                  </span>
-                  <small>
-                    До 10 минут ·{" "}
-                    {backendIsDemo
-                      ? "синтетическая запись для теста"
-                      : "запись кассовых операций"}
-                  </small>
-                </button>
-              )}
-              {fileError && (
-                <div className="form-error" role="alert">
-                  <AlertCircle size={18} />
-                  <span>{fileError}</span>
-                </div>
-              )}
-              <div className="key-field">
-                <label htmlFor="api-key">
-                  <KeyRound size={16} />
-                  Ключ доступа к API
-                </label>
-                <div className="input-wrap">
-                  <input
-                    ref={keyInput}
-                    id="api-key"
-                    type={showKey ? "text" : "password"}
-                    value={key}
-                    onChange={(e) => setKey(e.target.value)}
-                    placeholder="Введите ключ сервиса"
-                    autoComplete="off"
-                    spellCheck={false}
-                    disabled={review.busy}
-                    aria-invalid={review.issue?.kind === "auth"}
-                    aria-describedby="key-hint"
-                  />
-                  <button
-                    className="icon-button"
-                    aria-label={showKey ? "Скрыть ключ" : "Показать ключ"}
-                    type="button"
-                    onClick={() => setShowKey(!showKey)}
-                  >
-                    {showKey ? <EyeOff size={19} /> : <Eye size={19} />}
-                  </button>
-                </div>
-                <small id="key-hint">
-                  Хранится в этой вкладке, не включается в сборку сайта.
-                </small>
-              </div>
-              {backendIsDemo && (
-                <div className="scenario-select">
-                  <label htmlFor="demo-scenario">Тестовый сценарий</label>
-                  <select
-                    id="demo-scenario"
-                    value={scenario}
-                    onChange={(e) => setScenario(e.target.value)}
-                    disabled={review.busy}
-                  >
-                    {DEMO_SCENARIOS.map((item) => (
-                      <option key={item.value} value={item.value}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </section>
-            <ResultPanel
-              job={review.job}
-              phase={review.phase}
-              issue={review.issue}
-              activeEvent={activeEvent}
-              onSelect={chooseEvent}
-              onSeek={(time) => preview.current?.seek(time)}
-              canPlay={!!file}
-              onFrame={setFrame}
-              onResume={review.resume}
-              canResume={review.canResume}
-              onReset={reset}
-              hasKey={!!key.trim()}
-            />
-          </div>
-          <details className="how-it-works" ref={details}>
-            <summary>
-              <Info size={18} />
-              Как проходит проверка
-              <ChevronRight size={17} />
-            </summary>
-            <div className="how-grid">
-              <div>
-                <h3>Загрузите запись</h3>
-                <p>
-                  Укажите ключ доступа и выберите файл. Время загрузки и
-                  ожидания в очереди входит в общий бюджет проверки.
-                </p>
-              </div>
-              <div>
-                <h3>Вернитесь к результату</h3>
-                <p>
-                  Текущая проверка восстановится после обновления вкладки. Для
-                  просмотра исходного видео нужно снова выбрать локальный файл.
-                </p>
-              </div>
-              <div>
-                <h3>Изучите доказательства</h3>
-                <p>
-                  Увеличивайте кадры и переходите к отметкам событий. ML2
-                  получает наблюдения и кадры, а не исходный ролик.
-                </p>
-              </div>
             </div>
-            {service.readiness && (
-              <div className="component-status">
-                <h3>Проверка компонентов</h3>
-                <ul>
-                  {Object.entries(service.readiness.checks).map(
-                    ([name, check]) => (
-                      <li key={name}>
-                        <strong>
-                          {checkNames[name] ?? name}:{" "}
-                          {check.ready ? "доступно" : "недоступно"}
-                        </strong>
-                        <span>{check.detail}</span>
-                      </li>
-                    ),
-                  )}
-                </ul>
-                <p>
-                  Доступность порта ML-сервиса не подтверждает, что модель
-                  загружена или правильно анализирует видео.
-                </p>
+            <details className="how-it-works" ref={details}>
+              <summary>
+                <Info size={18} />
+                Как проходит проверка
+                <ChevronRight size={17} />
+              </summary>
+              <div className="how-grid">
+                <div>
+                  <h3>Загрузите запись</h3>
+                  <p>
+                    Выберите MOV, MP4, AVI, MKV или WEBM и нажмите «Проверить
+                    видео». Перед анализом видео преобразуется в MP4. Загрузка,
+                    очередь и преобразование входят в общий бюджет проверки.
+                  </p>
+                </div>
+                <div>
+                  <h3>Вернитесь к результату</h3>
+                  <p>
+                    Проверки доступны в истории после обновления страницы.
+                    Сохранённое видео открывается без нового анализа. Результаты
+                    и ролики имеют отдельные сроки хранения, указанные в истории
+                    и карточке проверки.
+                  </p>
+                </div>
+                <div>
+                  <h3>Изучите доказательства</h3>
+                  <p>
+                    Увеличивайте кадры и переходите к отметкам событий. ML2
+                    получает наблюдения и кадры, а не исходный ролик.
+                  </p>
+                </div>
               </div>
+              {service.readiness && (
+                <div className="component-status">
+                  <h3>Проверка компонентов</h3>
+                  <ul>
+                    {Object.entries(service.readiness.checks).map(
+                      ([name, check]) => (
+                        <li key={name}>
+                          <strong>
+                            {checkNames[name] ?? name}:{" "}
+                            {check.ready ? "доступно" : "недоступно"}
+                          </strong>
+                          <span>{check.detail}</span>
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                  <p>
+                    Доступность порта ML-сервиса не подтверждает, что модель
+                    загружена или правильно анализирует видео.
+                  </p>
+                </div>
+              )}
+            </details>
+          </div>
+          {activeTab === "settings" && (
+            <SettingsPanel savedKey={key} onSave={setKey} busy={review.busy} />
+          )}
+          {activeTab === "history" && (
+            <HistoryPanel
+              apiKey={key}
+              filters={historyFilters}
+              onFilters={setHistoryFilters}
+              canOpen={!review.busy}
+              onSettings={() => setActiveTab("settings")}
+              onOpen={(jobId) => {
+                setFile(null);
+                setCanPreview(false);
+                setFileError("");
+                setFrame(null);
+                setActiveEvent(0);
+                review.open(jobId);
+                setActiveTab("workspace");
+              }}
+              onDeleted={(jobId) => {
+                if (review.restoredId === jobId || review.job?.job_id === jobId)
+                  reset();
+              }}
+            />
+          )}
+          {activeTab === "analytics" && (
+            <AnalyticsPanel
+              apiKey={key}
+              onSettings={() => setActiveTab("settings")}
+              onDrill={(filters) => {
+                setHistoryFilters(filters);
+                setActiveTab("history");
+              }}
+            />
+          )}
+          {activeTab !== "workspace" &&
+            activeTab !== "settings" &&
+            activeTab !== "history" &&
+            activeTab !== "analytics" && (
+              <WorkspaceSections tab={activeTab} job={review.job} />
             )}
-          </details>
           <footer>
             <span>Cashier Guard</span>
             <span>Помощь в проверке · окончательное решение за человеком</span>

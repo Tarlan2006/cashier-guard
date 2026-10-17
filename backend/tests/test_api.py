@@ -1,5 +1,6 @@
 import base64
 import time
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,7 +9,7 @@ from pydantic import ValidationError
 from app.config import Settings
 from app.main import create_app
 from app.models import AnalysisResult, EvidenceFrame
-from app import pipeline
+from app import media, pipeline
 
 KEY = "test-private-key"
 HEADERS = {"X-API-Key": KEY}
@@ -16,16 +17,21 @@ HEADERS = {"X-API-Key": KEY}
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    async def fake_probe(path):
+    async def fake_probe(path, **kwargs):
         if path.read_bytes() == b"broken":
             raise ValueError("Повреждённое видео")
-        return 20.0
+        return SimpleNamespace(duration_sec=20.0, start_time=0.0)
+
+    async def normalize(source, output, info, **kwargs):
+        output.write_bytes(b"normalized mp4")
+        return info
 
     async def fake_analyze(path, duration, settings, scenario, on_stage):
         on_stage("analyzing")
-        return AnalysisResult(verdict="no_violation")
+        return AnalysisResult(verdict="no_violation", violations=[])
 
-    monkeypatch.setattr(pipeline, "probe", fake_probe)
+    monkeypatch.setattr(media, "inspect_video", fake_probe)
+    monkeypatch.setattr(media, "normalize_video", normalize)
     monkeypatch.setattr(pipeline, "analyze", fake_analyze)
     config = Settings(api_key=KEY, storage=tmp_path / "uploads", max_upload_mb=1)
     with TestClient(create_app(config)) as test_client:
@@ -58,6 +64,25 @@ def test_upload_process_poll_and_delete_original(client):
     assert result["violations"] == []
     assert result["filename"] == "video.mov"
     assert not list(config.storage.glob("*.upload"))
+    assert not list(config.storage.glob("*.normalized.mp4"))
+
+
+@pytest.mark.parametrize("extension", ["mov", "MP4", "avi", "mkv", "WEBM"])
+def test_supported_containers_reach_normalized_pipeline(client, monkeypatch, extension):
+    api, config = client
+    paths = []
+    async def analyze(path, duration, settings, scenario, on_stage):
+        assert path.name.endswith(".normalized.mp4")
+        assert path.read_bytes() == b"normalized mp4"
+        paths.append(path)
+        return AnalysisResult(verdict="no_violation", violations=[])
+    monkeypatch.setattr(pipeline, "analyze", analyze)
+    response = api.post("/api/v1/analyze", files={"file": (f"clip.{extension}", b"video")}, headers=HEADERS)
+    assert response.status_code == 202
+    result = wait_for_job(api, response.json()["job_id"])
+    assert result["status"] == "done" and paths
+    assert not list(config.storage.glob("*.upload"))
+    assert not list(config.storage.glob("*.normalized.mp4"))
 
 
 @pytest.mark.parametrize("filename,content,status", [("clip.txt", b"x", 415), ("clip.mov", b"", 400), ("clip.mov", b"x" * (1024 * 1024 + 1), 413)], ids=["unsupported", "empty", "oversized"])
