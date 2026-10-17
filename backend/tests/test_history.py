@@ -148,20 +148,33 @@ def test_demo_failed_processing_excluded_and_exact_types_not_merged(tmp_path,mon
         assert client.delete('/api/v1/jobs/processing',headers=HEADERS).status_code==409
 
 
-def test_legacy_migration_preserves_payload_and_stable_ids(tmp_path,monkeypatch):
+@pytest.mark.parametrize('old_lifetime_hours', [-24, 1])
+def test_legacy_migration_preserves_payload_and_stable_ids(tmp_path,monkeypatch,old_lifetime_hours):
     config,_=setup(tmp_path,monkeypatch)
     config.storage.mkdir()
     path=config.storage/'jobs.sqlite3';conn=sqlite3.connect(path)
     conn.execute('CREATE TABLE jobs(job_id TEXT PRIMARY KEY,status TEXT NOT NULL,expires_at REAL NOT NULL,payload TEXT NOT NULL)')
-    now=time.time();payload=dict(job_id='legacy',status='done',stage='done',mode='demo',filename='legacy.mov',created_at=datetime.fromtimestamp(now,timezone.utc).isoformat(),expires_at=datetime.fromtimestamp(now+3600,timezone.utc).isoformat(),verdict='no_violation',violations=[],error=None)
-    conn.execute('INSERT INTO jobs VALUES(?,?,?,?)',('legacy','done',now+3600,json.dumps(payload)));conn.commit();conn.close()
+    buf=BytesIO();Image.new('RGB',(32,24),'white').save(buf,'JPEG')
+    event=dict(type='Legacy exact type',timecode_sec=1,description='Legacy fixture',evidence_frames=[dict(timestamp_sec=1,image_base64=base64.b64encode(buf.getvalue()).decode())])
+    now=time.time();old_expiry=now+old_lifetime_hours*3600
+    payload=dict(job_id='legacy',status='done',stage='done',mode='demo',filename='legacy.mov',created_at=datetime.fromtimestamp(now-48*3600,timezone.utc).isoformat(),expires_at=datetime.fromtimestamp(old_expiry,timezone.utc).isoformat(),verdict='violation',violations=[event],error=None)
+    conn.execute('INSERT INTO jobs VALUES(?,?,?,?)',('legacy','done',old_expiry,json.dumps(payload)));conn.commit();conn.close()
     with TestClient(create_app(config)) as client:
         job=client.get('/api/v1/jobs/legacy',headers=HEADERS).json()
-        assert job['verdict']=='no_violation' and job['filename']=='legacy.mov'
+        assert job['verdict']=='violation' and job['filename']=='legacy.mov'
+        assert job['violations'][0]['description']==event['description']
+        event_id=job['violations'][0]['event_id']
+        assert event_id and job['violations'][0]['human_review']['decision']=='unreviewed'
         assert datetime.fromisoformat(job['expires_at']).timestamp()>now+700*3600
         assert job['video_unavailable_reason']=='not_retained'
         assert client.get('/api/v1/jobs',headers=HEADERS).json()['total']==1
         assert client.portal.call(lambda:client.app.state.store.connection.execute('PRAGMA user_version').fetchone()[0])==2
+        assert client.patch(f'/api/v1/jobs/legacy/events/{event_id}/review',headers=HEADERS,json={'decision':'rejected','comment':'Legacy review'}).status_code==200
+    with TestClient(create_app(config)) as restarted:
+        restored=restarted.get('/api/v1/jobs/legacy',headers=HEADERS).json()
+        assert restored['expires_at']==job['expires_at']
+        assert restored['violations'][0]['event_id']==event_id
+        assert restored['violations'][0]['human_review']['comment']=='Legacy review'
 
 
 def test_archived_video_counts_towards_quota_and_expiry_releases_space(tmp_path,monkeypatch):
@@ -189,3 +202,36 @@ def test_result_expiry_deletes_video_even_if_video_lifetime_is_longer(tmp_path,m
         assert not path.exists()
         assert client.get('/api/v1/jobs/'+job['job_id'],headers=HEADERS).status_code==404
         assert client.get('/api/v1/analytics',headers=HEADERS).json()['successful_videos']==0
+
+
+@pytest.mark.parametrize('operation', ['review', 'delete'])
+def test_write_failure_rolls_back_and_keeps_result_and_archive(tmp_path, monkeypatch, operation):
+    config,_=setup(tmp_path,monkeypatch,cleanup_interval=60)
+    with TestClient(create_app(config)) as client:
+        job=upload(client);jid=job['job_id'];event_id=job['violations'][0]['event_id']
+        class FaultOnce:
+            def __init__(self, connection): self.connection=connection;self.pending=False;self.failed=False
+            def __getattr__(self, name): return getattr(self.connection,name)
+            def execute(self, sql, *args):
+                if (operation=='review' and sql.startswith('UPDATE events SET decision')) or (operation=='delete' and sql.startswith('DELETE FROM jobs')):
+                    self.pending=True
+                return self.connection.execute(sql,*args)
+            def commit(self):
+                if self.pending and not self.failed:
+                    self.failed=True;self.pending=False
+                    raise sqlite3.OperationalError('synthetic commit failure')
+                return self.connection.commit()
+        def inject():
+            store=client.app.state.store
+            store.connection=FaultOnce(store.connection)
+        client.portal.call(inject)
+        if operation=='review':
+            response=client.patch(f'/api/v1/jobs/{jid}/events/{event_id}/review',headers=HEADERS,json={'decision':'confirmed','comment':'must roll back'})
+        else:
+            response=client.delete(f'/api/v1/jobs/{jid}',headers=HEADERS)
+        assert response.status_code==503
+        restored=client.get(f'/api/v1/jobs/{jid}',headers=HEADERS).json()
+        assert restored['violations'][0]['human_review']['decision']=='unreviewed'
+        assert restored['video_available']
+        assert client.get('/api/v1/jobs',headers=HEADERS).json()['total']==1
+        assert client.get('/api/v1/analytics',headers=HEADERS).json()['confirmed_events']==0

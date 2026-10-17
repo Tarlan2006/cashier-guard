@@ -2,6 +2,7 @@ import asyncio
 import hmac
 import logging
 import shutil
+import sqlite3
 import tempfile
 import time
 from contextlib import asynccontextmanager
@@ -475,7 +476,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         job = await get_job(job_id)
         if job.status == "processing" or job_id in active:
             raise HTTPException(409, "Дождитесь завершения обработки, затем удалите проверку.")
-        path = store.delete(job_id)
+        try:
+            path = store.delete(job_id)
+        except sqlite3.Error:
+            rollback_after_write_error()
+            raise HTTPException(503, "Не удалось удалить проверку. Повторите после восстановления хранилища.")
         if path: delete_source(path)
         unsaved_failures.pop(job_id,None)
         return {"deleted": True, "job_id": job_id}
@@ -487,7 +492,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(409, "Решения доступны только для завершённой проверки.")
         if 3 * len(update.comment.encode()) + 16_384 > available_bytes():
             raise HTTPException(503,"Недостаточно места для сохранения решения. Освободите хранилище.")
-        result = store.update_review(job_id,event_id,update)
+        try:
+            result = store.update_review(job_id,event_id,update)
+        except sqlite3.Error:
+            rollback_after_write_error()
+            raise HTTPException(503, "Не удалось сохранить решение. Повторите после восстановления хранилища.")
         if result is None: raise HTTPException(404,"Событие не найдено в этой проверке.")
         return result
 

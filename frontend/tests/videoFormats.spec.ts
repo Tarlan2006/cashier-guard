@@ -144,7 +144,7 @@ async function complete(page: Page, id: string, filename: string) {
   await expect
     .poll(async () =>
       (await readdir(STORAGE)).filter(
-        (name) => !name.startsWith("jobs.sqlite3"),
+        (name) => !name.startsWith("jobs.sqlite3") && name !== "videos",
       ),
     )
     .toEqual([]);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { request, ApiError } from "../api";
 import type { HumanReview, Violation } from "../api";
 
@@ -21,6 +21,7 @@ export function EventReview({
   onOpenSettings?: () => void;
 }) {
   const saved = event.human_review;
+  const decisionId = useId();
   const [decision, setDecision] = useState<HumanReview["decision"]>(
     saved?.decision ?? "unreviewed",
   );
@@ -86,23 +87,22 @@ export function EventReview({
       <p className="review-note">
         Решение человека сохраняется отдельно от оценки и объяснения модели.
       </p>
-      <label>
-        Решение по событию
-        <select
-          value={decision}
-          disabled={busy}
-          onChange={(e) => {
-            setDecision(e.target.value as HumanReview["decision"]);
-            setMessage("");
-          }}
-        >
-          {Object.entries(decisionLabels).map(([value, label]) => (
-            <option value={value} key={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <label htmlFor={decisionId}>Решение по событию</label>
+      <select
+        id={decisionId}
+        value={decision}
+        disabled={busy}
+        onChange={(e) => {
+          setDecision(e.target.value as HumanReview["decision"]);
+          setMessage("");
+        }}
+      >
+        {Object.entries(decisionLabels).map(([value, label]) => (
+          <option value={value} key={value}>
+            {label}
+          </option>
+        ))}
+      </select>
       <label>
         Комментарий проверяющего <span>(необязательно)</span>
         <textarea

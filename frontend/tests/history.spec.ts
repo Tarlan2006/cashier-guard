@@ -120,6 +120,15 @@ test("four videos persist, reopen without ML, restore human decision, and analyt
     .click();
   await expect(page.locator(".completed-result")).toBeVisible();
   await expect(page.locator("video")).toBeVisible();
+  await expect(page.locator(".evidence-heading .timecode")).toBeEnabled();
+  await page.locator(".evidence-heading .timecode").click();
+  await expect
+    .poll(() =>
+      page
+        .locator("video")
+        .evaluate((video: HTMLVideoElement) => video.currentTime),
+    )
+    .toBeCloseTo(3.64, 1);
   await page
     .getByLabel("Решение по событию", { exact: true })
     .selectOption("confirmed");
@@ -134,6 +143,9 @@ test("four videos persist, reopen without ML, restore human decision, and analyt
   ).toBeVisible();
   await page.getByRole("button", { name: "Убрать локальное видео" }).click();
   await shot(page, "decision-mobile");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await shot(page, "decision-desktop");
+  await page.setViewportSize({ width: 390, height: 844 });
   await restartBackend();
   await page.reload();
   await expect(page.locator(".completed-result")).toBeVisible();

@@ -440,7 +440,7 @@ export default function App() {
                 activeEvent={activeEvent}
                 onSelect={chooseEvent}
                 onSeek={(time) => preview.current?.seek(time)}
-                canPlay={!!file && canPreview}
+                canPlay={canPreview}
                 onFrame={setFrame}
                 onResume={review.resume}
                 canResume={review.canResume}
