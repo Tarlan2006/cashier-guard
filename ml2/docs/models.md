@@ -167,3 +167,26 @@ this iteration; all decoded open-data pixels stayed in local CV inference.
 ## Zone logistic experiment, 2026-10-17 (v6)
 
 Frozen SigLIP revision and Apache-2.0 license are unchanged. Local linear heads use scikit-learn 1.9.1 (BSD-3-Clause implementation), LogisticRegression C=0.1 and seed 42. They were fitted only on open-set weak episode labels, with StandardScaler and classifier refit inside each leave-one-MD5-video-out fold. No pretrained encoder was fine-tuned. Numeric coefficients are in ignored cache/v6/zones, not shipped or enabled: table LOVO agreement is below majority chance; safe has too few independent labelled videos. LinearZoneModel has no zero-shot state fallback. No VLM or new pretrained model was added.
+
+## Optional distance experiment, 2026-10-18 (v8)
+
+- Model: Depth Anything V2 **Small**, 24.8M parameters; official Transformers
+  checkpoint `depth-anything/Depth-Anything-V2-Small-hf`.
+- Revision: `5426e4f0f36572d16453bbda7a8389317b1bef99`.
+- License: **Apache-2.0**, verified on both the
+  [HF-format Small card](https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf)
+  and [original Small card](https://huggingface.co/depth-anything/Depth-Anything-V2-Small).
+  The [upstream repository](https://github.com/DepthAnything/Depth-Anything-V2)
+  distinguishes Small from the noncommercial Base/Large weights. Those weights
+  are not downloaded or used.
+- Model SHA-256: `3152477ce0d8d6978d76b995120de97cb5b928701fd0f817769f59e249a16b70`;
+  99,173,660 bytes. All assets, sizes and hashes: `configs/depth_model_manifest.json`.
+- Explicit setup/copy/verification only through `scripts/download_models.py --depth-small`.
+  Runtime uses built-in Transformers 5.20.1 `DepthAnythingForDepthEstimation`
+  and `DPTImageProcessorPil`, Torch 2.14.1; pinned local files, no remote code,
+  network requests or additional dependencies. One inverse-relative-depth map
+  per temporal median of nine frames, seed 42, configurable CPU/GPU device.
+- No training. Neither method A nor B is enabled by default. No metric floor
+  distances, camera intrinsics or surveyed ground-plane correspondences are
+  claimed. Open-data frames were viewed for development QA with the user's
+  permission; closed test inputs were not read.

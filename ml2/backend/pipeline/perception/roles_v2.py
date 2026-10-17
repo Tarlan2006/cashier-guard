@@ -1,9 +1,12 @@
 """Temporal role evidence, with a single-person scenario and weak anchor prior."""
 
 from collections import defaultdict
+from typing import TYPE_CHECKING
 import numpy as np
 
 from .scene_geometry import center, desk_box, distance_to_box
+if TYPE_CHECKING:
+    from .distances import ImageDistance
 
 DEFAULT_WEIGHTS = {
     "first_confirmed": 0.40,
@@ -14,7 +17,11 @@ DEFAULT_WEIGHTS = {
 }
 
 
-def assign_temporal_roles(facts: dict, settings: dict | None = None) -> dict:
+def assign_temporal_roles(
+    facts: dict, settings: dict | None = None, *,
+    distance_model: "ImageDistance | None" = None,
+) -> dict:
+    """Keep the production image metric unless an experiment injects another."""
     settings = settings or {}
     weights = settings.get("temporal_weights", DEFAULT_WEIGHTS)
     if (
@@ -92,6 +99,8 @@ def assign_temporal_roles(facts: dict, settings: dict | None = None) -> dict:
         for o in facts.get("fixtures", [])
         if o["class"] in {"counter_machine", "safe"}
     ]
+    anchor_boxes = [o['bbox'] for o in facts.get('fixtures', [])
+                    if o['class'] in {'counter_machine', 'safe'}]
     scores = []
     identifiers = list(residents)
     features = {}
@@ -116,10 +125,12 @@ def assign_temporal_roles(facts: dict, settings: dict | None = None) -> dict:
                             0.0,
                             1.0
                             - min(
-                                np.linalg.norm(center(p["bbox"], scale) - a)
-                                for a in anchors
+                                (distance_model.anchor_distance(p['bbox'], b)
+                                 if distance_model is not None
+                                 else np.linalg.norm(center(p['bbox'], scale)-a))
+                                for a, b in zip(anchors, anchor_boxes)
                             )
-                            / 0.3,
+                            / (distance_model.threshold(0.3) if distance_model is not None else 0.3),
                         )
                         for _, _, p in rows
                     ]
@@ -196,8 +207,12 @@ def assign_temporal_roles(facts: dict, settings: dict | None = None) -> dict:
         )
         near = (
             [
-                distance_to_box(center(p["bbox"]), table, scale)
-                <= float(settings.get("client_near_table_diag", 0.08))
+                (distance_model.table_distance(p['bbox'], table)
+                 if distance_model is not None
+                 else distance_to_box(center(p['bbox']), table, scale))
+                <= (distance_model.threshold(float(settings.get('client_near_table_diag', .08)))
+                    if distance_model is not None
+                    else float(settings.get('client_near_table_diag', .08)))
                 for _, _, p in rows
             ]
             if table
@@ -266,4 +281,9 @@ def assign_temporal_roles(facts: dict, settings: dict | None = None) -> dict:
             "Role scores are not calibrated identity/job probabilities.",
         ],
     )
+    if distance_model is not None:
+        facts['roles']['experimental_distance'] = dict(
+            method=distance_model.name,units=distance_model.units,
+            calibrated_floor=distance_model.calibrated_floor,
+        )
     return facts

@@ -18,6 +18,7 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "configs/model_manifest.json"
+DEPTH_MANIFEST = ROOT / "configs/depth_model_manifest.json"
 
 
 def digest(path: Path) -> str:
@@ -140,6 +141,31 @@ def export_local(directory: Path):
         raise ValueError("SigLIP numerical parity check did not pass")
 
 
+def install_depth_small(directory: Path, source: Path | None = None,
+                        *, verify_only: bool = False) -> None:
+    """Optional Apache-2.0 Small checkpoint, separate from production assets."""
+    manifest = json.loads(DEPTH_MANIFEST.read_text(encoding="utf-8"))
+    if any(m["license"] != "Apache-2.0" for m in manifest["models"]):
+        raise ValueError("Only the licensed Small depth model is allowed")
+    if verify_only:
+        verify_files(source or directory, manifest["runtime_files"])
+        print("Optional depth model hashes verified; no network")
+        return
+    if source is None:
+        download_sources(directory, manifest)
+    else:
+        verify_files(source, manifest["runtime_files"])
+        for name in manifest["runtime_files"]:
+            target = directory / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if (source / name).resolve() != target.resolve():
+                shutil.copy2(source / name, target)
+    verify_files(directory, manifest["runtime_files"])
+    target = directory / "depth-anything-v2-small/installation_manifest.json"
+    target.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    print("Optional local depth model ready; production default unchanged")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     modes = parser.add_mutually_exclusive_group(required=True)
@@ -151,6 +177,10 @@ def main():
         action="store_true",
         help="Pinned upstream sources plus local export; needs export dependencies",
     )
+    modes.add_argument("--depth-small", action="store_true",
+                       help="Download only optional Apache-2.0 Depth Anything V2 Small")
+    parser.add_argument("--depth-source", type=Path,
+                        help="With --depth-small: copy/verify an existing model-root bundle")
     parser.add_argument("--output", type=Path, default=ROOT / "models")
     parser.add_argument(
         "--verify-only",
@@ -158,6 +188,11 @@ def main():
         help="Validate --source without copying or network",
     )
     args = parser.parse_args()
+    if args.depth_small:
+        install_depth_small(args.output, args.depth_source, verify_only=args.verify_only)
+        return
+    if args.depth_source:
+        parser.error("--depth-source requires --depth-small")
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     if args.verify_only and not args.source:
         parser.error("--verify-only requires --source")
