@@ -1,0 +1,2 @@
+# Keep unified patches portable on Windows checkouts with core.autocrlf.
+*.patch text eol=lf

@@ -117,18 +117,85 @@ py -3.12 -m venv .venv
 `rtdetr_r18vd/` и `siglip-base-patch16-224/`. Конфиг: `configs/perception.json`,
 альтернативный путь — `PERCEPTION_CONFIG`. Для backend на этом CPU рекомендуется `WORKERS=1`.
 
-Тесты на синтетических данных, без исходных видео и весов (проверенный набор — 160):
+Тесты на синтетических данных, без исходных видео и весов (проверенный набор — 177):
 
 ```powershell
 .venv/Scripts/python.exe -m unittest discover -s tests
 ```
 
 `pytest` не входит в requirements.txt; команда выше соответствует проверенному запуску.
+Для тестов предлагаемого backend-патча нужен Git в PATH; патч применяется только
+к временной копии файла, рабочий backend не изменяется.
 Чистая установка 18.10.2026 проверена в новом окружении без system-site-packages:
 `pip install -r requirements.txt` успешен, `pip check` не выявил проблем,
-Базовые 142 теста прошли; актуальный набор v8 — 160 тестов.
+Базовые 142 теста прошли; набор v8 — 160, с проверками транспорта — 177 тестов.
 HTTP-проверка выше выполнена тем же окружением с существующими
 локальными весами и однократной загрузкой моделей при старте сервиса.
+
+## Локальная проверка цепочки
+
+`scripts/matching_stub.py` — **тестовая заглушка** сервиса другого участника на
+8002. Она проверяет контракт и копирует `rule_id`, уже записанный адаптером ML1
+в `id` наблюдения (`rule_id:index:seconds`); смысл видео и применимость нормы
+не проверяет. Пустые наблюдения дают `no_violation`, неизвестный ID или
+повреждённый запрос — HTTP 422. Ответ помечен `X-Matching-Stub: true`.
+Это отдельный тестовый процесс; обычный сервис анализа его не запускает.
+
+Из `ml2/`, с активным окружением Python 3.12 и установленным backend:
+
+```powershell
+# Только структурная копия существующего исследовательского каталога команды:
+python scripts/prepare_transport_catalog.py
+python scripts/run_chain.py --open-root DATA_OPEN --models MODEL_ROOT --ffmpeg-bin FFMPEG_BIN --rules-path cache/integration/transport_catalog.json --videos 2 14 --expect-empty
+# Та же команда через scripts/run_chain.ps1, либо python -m scripts.run_chain.
+```
+
+`DATA_OPEN` — путь к разрешённому `data/open`, `MODEL_ROOT` — комплект RT-DETR/SigLIP.
+По умолчанию используются порты 8000/8001/8002, `WORKERS=1`, `PIPELINE_MODE=live`.
+Скрипт проверяет занятость портов, генерирует ключ только в памяти/окружении,
+запускает сервисы, загружает видео в backend, опрашивает job и проверяет JSON/JPEG.
+Останавливает только свои процессы, включая дочерний процесс моделей.
+`--existing-ml1` сохраняет уже работающий ML1; `--direct-ml1` дополнительно проверяет
+прямой POST к ML1 перед каждым полным запросом. Альтернативный Python backend:
+`--backend-python PYTHON`; отдельная тестовая копия: `--backend-dir BACKEND_DIR`.
+
+Ответы с кадрами, логи и отчёт остаются в игнорируемом `cache/chain/`;
+`--output-dir` допускает только новую папку внутри `ml2/cache/`. Ключ и base64
+в консоль не выводятся. Код выхода 0 означает, что все проверки прошли;
+некорректный ответ, failed job или таймаут дают ненулевой код, без подмены вердикта.
+`--expect-empty` проверяет режим отключённых правил, а не качество распознавания.
+
+Отдельная проверка сохранённого ответа:
+
+```powershell
+python scripts/check_events.py cache/chain/RUN/02.ml1.json --kind ml1 --expect-empty
+python scripts/check_events.py cache/chain/RUN/02.job.json --kind job --rules-path cache/integration/transport_catalog.json --expect-empty
+```
+
+Файл `.ml1.json` создаётся только с `--direct-ml1`. Валидатор проверяет схемы из
+`contracts/`, интервалы, границы времени, уникальность ID наблюдений, согласованность
+вердикта, каталог и декодируемость 1–3 JPEG (≤8 млн пикселей, ≤4 млн символов base64).
+Повреждённые кадры, failed/processing и отсутствующее поле событий не считаются успехом.
+Для ML1 без длительности используйте `--duration SECONDS`, чтобы проверить верхнюю
+границу времени; у job длительность берётся из самого ответа.
+
+**Ограничение текущего backend на Windows:** `backend/app/media.py` использует
+Unix-only `signal.SIGXFSZ` и `resource.RLIMIT_FSIZE`. Полный прогон на этом Windows
+блокируется до ML1; эти файлы здесь не исправлялись. Нужен Linux backend либо
+отдельное исправление участника 3 с сохранением ограничений диска. ML1 работает
+на Windows самостоятельно. Подробности проверки: [eval/chain/report.md](eval/chain/report.md).
+
+Предлагаемый патч [patches/backend-ml-timeouts.patch](patches/backend-ml-timeouts.patch)
+увеличивает только сетевой бюджет ML1 до read=180 с / total=190 с,
+задаёт ML2 read=30 с / total=35 с и сохраняет общий дедлайн job.
+Он **не применён** к `backend/app` и не исправляет Windows-совместимость.
+Проверка и применение участником 3 из корня репозитория:
+
+```powershell
+git apply --check ml2/patches/backend-ml-timeouts.patch
+# Только после согласования изменения backend:
+git apply ml2/patches/backend-ml-timeouts.patch
+```
 
 ## Лицензии
 
