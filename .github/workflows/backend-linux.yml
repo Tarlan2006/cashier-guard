@@ -13,6 +13,11 @@ on:
       - contracts/fixtures/**
       - .github/workflows/backend-linux.yml
   workflow_dispatch:
+    inputs:
+      revision:
+        description: Commit or branch to test (empty means current main)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -27,6 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
+          ref: ${{ inputs.revision || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
