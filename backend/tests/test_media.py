@@ -40,6 +40,14 @@ def timestamps(path):
     return [float(frame["best_effort_timestamp_time"]) for frame in data["frames"]]
 
 
+def container_start_time(path):
+    data = json.loads(subprocess.run([
+        "ffprobe", "-v", "error", "-show_entries",
+        "format=start_time", "-of", "json", str(path),
+    ], check=True, capture_output=True, timeout=10).stdout)
+    return float(data["format"]["start_time"])
+
+
 def normalize(source, output, **kwargs):
     async def run():
         info = await inspect_video(source)
@@ -58,10 +66,14 @@ def test_all_five_containers_are_real_normalized_mp4_without_audio(tmp_path, ext
     assert after.demuxer == "mov" and "mp4" in after.format_name
     assert not after.has_audio
     assert (after.width, after.height) == (96, 64)
-    assert after.duration == pytest.approx(before.duration, abs=0.025)
-    assert after.duration == pytest.approx(1.3, abs=0.002)
-    assert after.start_time == after.video_start_time == 0
-    assert timestamps(output) == pytest.approx(timestamps(source), abs=0.001)
+    # AAC preroll and Opus codec delay differ between FFmpeg releases. Preserve
+    # the actual source timeline relative to its container, not a guessed zero.
+    leading = before.video_start_time - before.start_time
+    assert after.video_duration == pytest.approx(1.3, abs=0.002)
+    assert after.duration_sec == pytest.approx(leading + 1.3, abs=0.002)
+    assert after.start_time == pytest.approx(leading, abs=0.001)
+    assert after.video_start_time == pytest.approx(leading, abs=0.001)
+    assert timestamps(output) == pytest.approx([pts - before.start_time for pts in timestamps(source)], abs=0.001)
     assert source.exists()  # Lifecycle owns original cleanup.
 
 
@@ -283,12 +295,13 @@ def test_aac_tail_at_30fps_does_not_reject_or_extend_video(tmp_path, extension):
         ffmpeg("-i", video, "-i", audio, "-c", "copy", source)
     output = tmp_path / "normalized.mp4"
     before, after = normalize(source, output)
-    assert 0.02 < before.duration - before.video_duration < 0.03
+    audio_tail = before.start_time + before.duration - before.video_start_time - before.video_duration
+    assert 0.02 < audio_tail < 0.03
     assert before.video_duration == pytest.approx(1.3, abs=0.001)
-    assert after.duration_sec == pytest.approx(1.3, abs=0.001)
+    assert after.duration_sec == pytest.approx(before.video_start_time - before.start_time + 1.3, abs=0.001)
     assert not after.has_audio
     assert len(timestamps(source)) == len(timestamps(output)) == 39
-    assert timestamps(output) == pytest.approx(timestamps(source), abs=0.001)
+    assert timestamps(output) == pytest.approx([pts - before.start_time for pts in timestamps(source)], abs=0.001)
 
 
 @pytest.mark.parametrize("origin,leading", [(5, 0), (0, 0.5), (5, 0.5)])
@@ -302,13 +315,14 @@ def test_matroska_duration_tag_is_absolute_end_not_span(tmp_path, origin, leadin
            "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-output_ts_offset", str(origin), source)
     output = tmp_path / "normalized.mp4"
     before, after = normalize(source, output)
-    assert before.start_time == pytest.approx(origin, abs=0.001)
+    assert before.start_time == pytest.approx(container_start_time(source), abs=0.001)
     assert before.video_start_time == pytest.approx(origin + leading, abs=0.001)
     assert before.video_duration == pytest.approx(1.3, abs=0.001)
-    assert before.duration == pytest.approx(leading + 1.321, abs=0.002)
-    assert after.video_start_time == pytest.approx(leading, abs=0.001)
-    assert after.duration_sec == pytest.approx(leading + 1.3, abs=0.001)
-    assert timestamps(output) == pytest.approx([timestamp - origin for timestamp in timestamps(source)], abs=0.001)
+    assert before.start_time + before.duration == pytest.approx(origin + leading + 1.321, abs=0.002)
+    actual_leading = before.video_start_time - before.start_time
+    assert after.video_start_time == pytest.approx(actual_leading, abs=0.001)
+    assert after.duration_sec == pytest.approx(actual_leading + 1.3, abs=0.001)
+    assert timestamps(output) == pytest.approx([timestamp - before.start_time for timestamp in timestamps(source)], abs=0.001)
 
 
 def test_missing_matroska_track_duration_uses_actual_packet_timestamps(tmp_path):
@@ -320,10 +334,12 @@ def test_missing_matroska_track_duration_uses_actual_packet_timestamps(tmp_path)
     assert b"DURATION" in data
     # Same-length, valid tag rename; CRC writing was disabled for this fixture.
     source.write_bytes(data.replace(b"DURATION", b"IGNORED!"))
-    before, after = normalize(source, tmp_path / "normalized.mp4")
+    output = tmp_path / "normalized.mp4"
+    before, after = normalize(source, output)
     assert before.duration == pytest.approx(1.321, abs=0.001)
     assert before.video_duration == pytest.approx(1.3, abs=0.001)
-    assert after.duration_sec == pytest.approx(1.3, abs=0.001)
+    assert after.duration_sec == pytest.approx(before.video_start_time - before.start_time + 1.3, abs=0.001)
+    assert timestamps(output) == pytest.approx([pts - before.start_time for pts in timestamps(source)], abs=0.001)
 
 
 def test_packet_fallback_rejects_unknown_final_duration_instead_of_guessing_fps(tmp_path, monkeypatch):
