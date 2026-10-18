@@ -1,0 +1,53 @@
+Cashier Guard: быстрое подключение локального прототипа
+
+Готово: RT-DETR треки + подтверждённые роли/зоны + модель состояния двери +
+эпизоды для проверки + JPEG с настоящими таймкодами. LLM/облачные API не используются.
+Деньги, пересчёт, удостоверение личности и блокировка экрана НЕ проверяются.
+
+Что передать backend/frontend
+1. review-result.json: полный объект для панели ручной проверки.
+   analysis_status=partial, analysis_complete=false, verdict=null.
+   observations.events: id, start_sec, end_sec, description, evidence_frames.
+   event_metadata связывается по id: type, status, source, participant_ids.
+   evidence_frames: timestamp_sec, image_base64 (JPEG без data:-префикса).
+2. ml1-observations.json: только согласованный контракт contracts/ml1-response.schema.json.
+   Он содержит наблюдения, а не список доказанных нарушений.
+3. report.html: автономная демонстрация с кадрами. Открывается без Python/моделей.
+   index.html: переключение примеров. Архив переносится на другой ноутбук целиком.
+
+Backend: текущий JobResponse не содержит partial/review-состояние. До подключения
+сохранить review-result.json как отдельный результат проверки либо согласовать
+добавление analysis_status/observations и отображение их frontend. Не преобразовывать
+verdict=null в no_violation и не отправлять эти кандидаты в matcher как установленный
+правовой факт. В этом пакете существующие backend/frontend/ML2 не менялись.
+
+Frontend: заголовок «Требует проверки», карточка с началом/концом, описанием,
+источником и 1–3 кадрами. Для картинки src="data:image/jpeg;base64,"+image_base64.
+Нажатие на таймкод перематывает локально выбранное видео. Пустой список:
+«В доступных проверках события не найдены; анализ частичный».
+Нельзя подписывать карточки «доказанное нарушение». Неизвестная дверь — не закрытая.
+
+Запуск из cashier-guard (Python 3.12; существующий local env)
+ml1/local/perception-venv/bin/python ml1/run_scene_mvp.py --session SESSION --calibration PROFILE --experimental-door-model ml1/local/door-baseline-20261017-214613-011610
+ml1/local/perception-venv/bin/python ml1/export_scene_handoff.py --scene-result RESULT1 RESULT2
+
+SESSION создаётся prepare_scene_mvp.py из трекинга run_person_tracks_trial.py.
+PROFILE должен быть подтверждён для SHA конкретного видео и этой сессии трекинга,
+с cashier_zone, service_zone, door_zone и проверенными ID. Новое произвольное видео
+требует такой калибровки; автоматического переноса ID и ракурса нет.
+Включённая модель двери не использует человеческие покадровые метки двери.
+Обычные signals и experimental_signals разделены; production whitelist не включён.
+
+Зависимости: ml1/requirements-perception-mac.txt. CPU, 2 потока, Mac Air M2 8 ГБ.
+Torch/Transformers + существующий RT-DETR R18 backbone + логистическая голова.
+Веса: ml1/models/rtdetr_r18vd (PekingU/rtdetr_r18vd).
+Лицензионные файлы весов в этот пакет не включены; сами веса не распространяются.
+Голова: ml1/local/door-baseline-20261017-214613-011610/door-model.npz.
+X-1 и X-11 участвовали в обучении двери: примеры демонстрируют интеграцию.
+Независимые проверки двери на X-18/X-30/X-31: 122/132 совпадений, 2 ложных open,
+4 open->closed, 4 unknown. Это три ролика, не общая точность и не юридическая оценка.
+Замеры door-only на 38–52 кадрах: около 6–7.4 с после начала загрузки модели;
+не полный путь загрузки видео/детекции/калибровки/API.
+
+Все банковские кадры/JSON/архив находятся в игнорируемом ml1/local/.
+В Git передавать исходники и эту инструкцию; реальные кадры/веса не коммитить.
