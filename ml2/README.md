@@ -117,6 +117,72 @@ py -3.12 -m venv .venv
 `rtdetr_r18vd/` и `siglip-base-patch16-224/`. Конфиг: `configs/perception.json`,
 альтернативный путь — `PERCEPTION_CONFIG`. Для backend на этом CPU рекомендуется `WORKERS=1`.
 
+## Перенос на другую машину (macOS arm64)
+
+Для Apple M2 используйте нативный **Python 3.12 arm64**, macOS 14 или новее
+и Git. Создайте отдельное окружение; команды выполняются из `cashier-guard/ml2`:
+
+```bash
+uname -m  # arm64
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -c 'import platform; print(platform.machine())'  # arm64
+python -m pip install -r requirements.txt
+python -m pip check
+```
+
+Веса не входят в Git. Выберите **один** способ подготовки:
+
+1. Скачать закреплённые исходные веса и экспортировать ONNX локально:
+   `python scripts/download_models.py --download`.
+2. Перенести готовый `ml2-weights.zip` (только runtime-веса, признаки и manifest),
+   сравнить SHA-256 с хешем отправителя и распаковать:
+
+   ```bash
+   shasum -a 256 /path/to/ml2-weights.zip
+   mkdir -p models
+   unzip /path/to/ml2-weights.zip -d models
+   python scripts/download_models.py --source models --verify-only
+   ```
+
+Внутри `models/` должны оказаться `installation_manifest.json`,
+`rtdetr_r18vd/` и `siglip-base-patch16-224/`. Последняя команда проверяет все
+runtime-файлы без сети; depth-модель для запуска не нужна. Сетевой экспорт
+на самом Mac не проверен; готовый архив позволяет обойти этот этап.
+
+Запустите сервис на CPU с одним worker; во втором терминале проверьте готовность:
+
+```bash
+python -m uvicorn service.app:app --host 127.0.0.1 --port 8001 --workers 1
+# Во втором терминале, после загрузки моделей:
+curl --fail http://127.0.0.1:8001/health
+```
+
+Backend должен работать с `PIPELINE_MODE=live` и `ML1_URL=http://127.0.0.1:8001`.
+Наличие колёс не заменяет проверку запуска и времени обработки на самом Mac.
+
+Проверка 18.10.2026: колёса найдены для всех 18 прямых зависимостей, включая
+`av==19.0.1`, `opencv-python==5.0.0.93`, `onnxruntime==1.31.0` и
+`scikit-learn==1.9.1`; requirements не менялся. Проверочная команда:
+
+```bash
+python -m pip download --only-binary=:all: --platform macosx_14_0_arm64 \
+  --python-version 3.12 --implementation cp --no-deps \
+  -r requirements.txt -d /tmp/ml2-macos-wheels
+```
+
+Это проверка доступности прямых зависимостей, без установки на Mac и без
+проверки транзитивных зависимостей на этой платформе.
+
+Чистый клон `ac98aac` на Windows с Python 3.12.10 проверен 18.10.2026:
+клон + venv + установка requirements — 339,28 с (использовался pip cache,
+system-site-packages выключен); `pip check` — без ошибок. Готовые runtime-веса
+скопированы и проверены скриптом. Старт Uvicorn до `/health` HTTP 200 — 14,49 с;
+один POST открытого видео 2 — HTTP 200 за 29,24 с, `events: []`,
+`X-Rules-Enabled: none`, `X-Perception-Complete: true`. Это замер Windows,
+скорость на M2 ещё не измерялась. В этом же чистом venv после установки
+тестового pytest: 187 passed, 18 subtests passed за 15,98 с.
+
 Тесты на синтетических данных, без исходных видео и весов (проверенный набор — 187):
 
 ```powershell
