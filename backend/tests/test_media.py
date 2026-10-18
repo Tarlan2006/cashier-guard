@@ -40,14 +40,6 @@ def timestamps(path):
     return [float(frame["best_effort_timestamp_time"]) for frame in data["frames"]]
 
 
-def container_start_time(path):
-    data = json.loads(subprocess.run([
-        "ffprobe", "-v", "error", "-show_entries",
-        "format=start_time", "-of", "json", str(path),
-    ], check=True, capture_output=True, timeout=10).stdout)
-    return float(data["format"]["start_time"])
-
-
 def normalize(source, output, **kwargs):
     async def run():
         info = await inspect_video(source)
@@ -288,15 +280,16 @@ def test_aac_tail_at_30fps_does_not_reject_or_extend_video(tmp_path, extension):
     source = tmp_path / f"audio-tail.{extension}"
     if extension == "mkv":
         ffmpeg("-i", video, "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
-               "-t", "1.3", "-c:v", "copy", "-c:a", "aac", source)
+               "-t", "1.4", "-c:v", "copy", "-c:a", "aac", source)
     else:
         audio = tmp_path / "audio.aac"
-        ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "1.3", "-c:a", "aac", audio)
+        ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "1.4", "-c:a", "aac", audio)
         ffmpeg("-i", video, "-i", audio, "-c", "copy", source)
     output = tmp_path / "normalized.mp4"
     before, after = normalize(source, output)
     audio_tail = before.start_time + before.duration - before.video_start_time - before.video_duration
-    assert 0.02 < audio_tail < 0.03
+    # Use an explicit 100 ms tail: older muxers may trim encoder padding.
+    assert 0.09 < audio_tail < 0.15
     assert before.video_duration == pytest.approx(1.3, abs=0.001)
     assert after.duration_sec == pytest.approx(before.video_start_time - before.start_time + 1.3, abs=0.001)
     assert not after.has_audio
@@ -312,13 +305,14 @@ def test_matroska_duration_tag_is_absolute_end_not_span(tmp_path, origin, leadin
     source = tmp_path / "timed.mkv"
     ffmpeg("-itsoffset", str(leading), "-i", video,
            "-f", "lavfi", "-i", f"sine=frequency=440:sample_rate=48000:duration={1.3 + leading}",
-           "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-output_ts_offset", str(origin), source)
+           # PCM isolates absolute Matroska DURATION tags from AAC codec delay.
+           "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "pcm_s16le", "-output_ts_offset", str(origin), source)
     output = tmp_path / "normalized.mp4"
     before, after = normalize(source, output)
-    assert before.start_time == pytest.approx(container_start_time(source), abs=0.001)
+    assert before.start_time == pytest.approx(origin, abs=0.001)
     assert before.video_start_time == pytest.approx(origin + leading, abs=0.001)
     assert before.video_duration == pytest.approx(1.3, abs=0.001)
-    assert before.start_time + before.duration == pytest.approx(origin + leading + 1.321, abs=0.002)
+    assert before.start_time + before.duration == pytest.approx(origin + leading + 1.3, abs=0.002)
     actual_leading = before.video_start_time - before.start_time
     assert after.video_start_time == pytest.approx(actual_leading, abs=0.001)
     assert after.duration_sec == pytest.approx(actual_leading + 1.3, abs=0.001)
