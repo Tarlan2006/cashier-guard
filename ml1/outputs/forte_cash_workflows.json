@@ -1,0 +1,83 @@
+{
+  "schema_version": "cash-custody-workflows/1",
+  "spec": {
+    "version": "cash-custody-workflows/1",
+    "policy_source": "explicit_user_cash_custody_workflow_request",
+    "storage_tail_steps": [
+      "cash_counter_use",
+      "cash_storage_placement_after_count",
+      "cash_storage_closed_after_placement"
+    ],
+    "applies_to": "cash_retained_by_cashier_after_count",
+    "closure_establishes_locking": false,
+    "object_disappearance_establishes_storage": false,
+    "missing_video_coverage_establishes_violation": false,
+    "statutory_requirement_asserted": false,
+    "automatic_violation_verdict": false
+  },
+  "scenario_source_catalog": "outputs/forte_scenarios_from_pdf.json",
+  "source_pdf_sha256": "938c7b7358e176453f21c7ed938df49428e5db324798caff20b607d5900a71bf",
+  "workflow_steps_are_user_policy_not_pdf_transcription": true,
+  "workflows": [
+    {
+      "workflow_kind": "client_cash_receipt",
+      "policy_version": "cash-custody-workflows/1",
+      "steps": [
+        "document_presentation",
+        "cash_handover",
+        "cash_counter_use",
+        "cash_storage_placement_after_count",
+        "cash_storage_closed_after_placement"
+      ],
+      "storage_condition": "received_cash_retained_by_cashier",
+      "bind_to_same_client_operation": true,
+      "observations_inferred_from_policy": false
+    },
+    {
+      "workflow_kind": "collection_bag_cash_processing",
+      "policy_version": "cash-custody-workflows/1",
+      "steps": [
+        "bag_handover",
+        "bag_opening",
+        "cash_counter_use",
+        "cash_storage_placement_after_count",
+        "cash_storage_closed_after_placement"
+      ],
+      "storage_condition": "cash_removed_from_bag_and_retained_by_cashier",
+      "bind_to_same_bag_and_cash_batch": true,
+      "presenter_check_is_separate_observation": true,
+      "observations_inferred_from_policy": false
+    },
+    {
+      "workflow_kind": "cashier_to_client_handover",
+      "policy_version": "cash-custody-workflows/1",
+      "steps": [
+        "cashier_to_client_handover"
+      ],
+      "conditional_retained_cash_branch": [
+        "cash_counter_use",
+        "cash_storage_placement_after_count",
+        "cash_storage_closed_after_placement"
+      ],
+      "storage_condition": "remaining_cash_retained_by_cashier",
+      "outgoing_cash_must_not_be_forced_into_storage": true,
+      "transaction_type_inferred_from_direction": false,
+      "observations_inferred_from_policy": false
+    },
+    {
+      "workflow_kind": "unknown_cash_operation",
+      "policy_version": "cash-custody-workflows/1",
+      "steps": [],
+      "conditional_retained_cash_branch": [
+        "cash_counter_use",
+        "cash_storage_placement_after_count",
+        "cash_storage_closed_after_placement"
+      ],
+      "storage_condition": "cash_retention_and_operation_binding_confirmed",
+      "operation_kind_must_not_be_inferred_from_video_filename": true,
+      "observations_inferred_from_policy": false
+    }
+  ],
+  "existing_video_observations_not_modified": true,
+  "automatic_execution_validated": false
+}

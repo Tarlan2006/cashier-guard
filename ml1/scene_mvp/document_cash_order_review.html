@@ -1,0 +1,55 @@
+<!doctype html><html lang="ru"><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src 'self' file: data:; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'">
+<title>Документ → деньги → машина → сейф</title>
+<style>body{font:18px system-ui;max-width:1080px;margin:24px auto;padding:16px}aside{background:#e8f4ed;padding:16px}#viewport{height:53vh;overflow:hidden;background:#edf2f8}video{width:100%;height:100%;object-fit:contain;transform:scale(1.8);transform-origin:50% 55%}label{display:block;margin:12px 0}button,input,select,textarea{font:inherit;padding:8px;margin:5px}input[type=number]{width:120px}#seek{width:60%}textarea{width:95%}fieldset{margin:18px 0}</style>
+<h1>Х‑3 · порядок действий</h1>
+<aside id="known"></aside><p>Просмотри исходное видео и отметь два интервала. Новых рамок рисовать не нужно.</p>
+<div id="viewport"><video id="video" preload="metadata" playsinline></video></div>
+<button onclick="play()">Воспроизвести / пауза</button><button onclick="step(-.25)">−0,25 с</button><button onclick="step(.25)">+0,25 с</button><input id="seek" type="range" min="0" step=".04" oninput="seek(Number(this.value))"><span id="time"></span>
+<label>Вид <select id="view" onchange="document.getElementById('video').style.transform=this.value==='focus'?'scale(1.8)':'scale(1)'"><option value="focus">Стол и руки</option><option value="full">Полный кадр</option></select></label>
+<fieldset><legend>1. Передача банкнот</legend>
+<p>Начало — клиент начинает передавать банкноты; конец — передача этой порции завершена.</p>
+<label>Начало, с <input id="cash-start" type="number" min="0" step=".1"><button onclick="mark('cash-start')">Отметить текущее время</button></label>
+<label>Конец, с <input id="cash-end" type="number" min="0" step=".1"><button onclick="mark('cash-end')">Отметить текущее время</button></label>
+<label>Направление <select id="direction"><option value="">Выбери</option><option value="client_to_cashier">Клиент → кассир</option><option value="cashier_to_client">Кассир → клиент</option><option value="unclear">Неясно</option></select></label></fieldset>
+<fieldset><legend>2. Счётная машина</legend>
+<label>Видно помещение банкнот в машину и её использование? <select id="counter"><option value="">Выбери</option><option value="observed">Да</option><option value="not_observed">Не наблюдается</option><option value="unclear">Не могу определить</option></select></label>
+<label>Начало использования, с <input id="counter-start" type="number" min="0" step=".1"><button onclick="mark('counter-start')">Отметить текущее время</button></label>
+<label>Конец использования, с <input id="counter-end" type="number" min="0" step=".1"><button onclick="mark('counter-end')">Отметить текущее время</button></label>
+<label>Дополнительно: виден ручной пересчёт? <select id="manual"><option value="unknown">Не отмечал / неясно</option><option value="observed">Да</option><option value="not_observed">Не наблюдается</option></select></label></fieldset>
+<fieldset><legend>3. Хранение после пересчёта</legend>
+<label>Видно, что после пересчёта эти деньги положили в сейф / кассовый шкаф? <select id="storage"><option value="unknown">Не отмечено</option><option value="observed">Да</option><option value="not_observed">Не наблюдается</option><option value="unclear">Неясно</option></select></label>
+<label>После помещения денег видно закрытие сейфа / шкафа? <select id="storage-closed"><option value="unknown">Не отмечено</option><option value="observed">Да</option><option value="not_observed">Не наблюдается</option><option value="unclear">Неясно</option></select></label>
+<label>Этап хранения полностью попал в ролик? <select id="storage-coverage"><option value="unknown">Не отмечено</option><option value="complete">Да, виден полностью</option><option value="incomplete">Нет, часть этапа за пределами видео</option><option value="unclear">Неясно</option></select></label></fieldset>
+<label>Предъявление документа и все отмеченные действия с деньгами относятся к обслуживанию одного клиента? <select id="same"><option value="">Выбери</option><option value="yes">Да</option><option value="no">Нет</option><option value="unclear">Неясно</option></select></label>
+<label>Комментарий <textarea id="comment" rows="2"></textarea></label>
+<label><input id="confirmed" type="checkbox">Подтверждаю отмеченные наблюдения.</label>
+<button onclick="save()">Сохранить проверку / черновик</button><p id="status"></p>
+<details><summary>JSON, если скачивание не сработало</summary><textarea id="json" rows="8" readonly></textarea></details>
+<script>
+const payload=__PAYLOAD__,$=id=>document.getElementById(id),video=$('video'),fields=['cash-start','cash-end','direction','counter','counter-start','counter-end','manual','storage','storage-closed','storage-coverage','same','comment'],storageKey='document-cash-counter-'+payload.review_session;
+$('known').textContent='По твоей сохранённой разметке предъявление документа наблюдается в '+payload.document_window[0]+'–'+payload.document_window[1]+' с. Сейчас проверяем последующие этапы.';
+video.src=payload.video_file;$('seek').max=payload.duration_sec;
+try{const old=JSON.parse(localStorage.getItem(storageKey)||'{}');for(const id of fields)if(old[id]!==undefined)$(id).value=old[id]}catch(e){}
+function stash(){try{localStorage.setItem(storageKey,JSON.stringify(Object.fromEntries(fields.map(id=>[id,$(id).value]))))}catch(e){}}
+for(const id of fields)$(id).onchange=()=>{$('confirmed').checked=false;stash()};
+video.ontimeupdate=()=>{$('time').textContent=video.currentTime.toFixed(3)+' с';$('seek').value=video.currentTime};
+function play(){if(video.paused)video.play().catch(()=>$('status').textContent='Нажми воспроизведение ещё раз.');else video.pause()}
+function seek(t){video.pause();video.currentTime=Math.max(0,Math.min(payload.duration_sec,t))}
+function step(delta){seek(video.currentTime+delta)}
+function mark(id){video.pause();$(id).value=Math.min(payload.duration_sec,video.currentTime).toFixed(3);$('confirmed').checked=false;stash()}
+function span(start,end){const a=$(start).value,b=$(end).value;return a!==''&&b!==''&&Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&Number(a)>=0&&Number(b)>Number(a)&&Number(b)<=payload.duration_sec?[Number(a),Number(b)]:null}
+function save(){
+ const cash=span('cash-start','cash-end'),counter=$('counter').value,ct=counter==='observed'?span('counter-start','counter-end'):null,issues=[];
+ if(!cash)issues.push('интервал передачи банкнот');if(!['client_to_cashier','cashier_to_client','unclear'].includes($('direction').value))issues.push('направление');
+ if(!['observed','not_observed','unclear'].includes(counter))issues.push('наблюдение машины');if(counter==='observed'&&!ct)issues.push('интервал использования машины');if(!['yes','no','unclear'].includes($('same').value))issues.push('связь с одной операцией');
+ const data={schema_version:'document-cash-order-review/2',review_session:payload.review_session,source_session:payload.source_session,
+ source_video_sha256:payload.source_video_sha256,protocol_sha256:payload.protocol_sha256,cash_handover_window_sec:cash,human_direction:$('direction').value||null,
+ counter_use_observation:counter||null,counter_use_window_sec:ct,manual_count_observation:$('manual').value||'unknown',same_operation:$('same').value||null,
+ cash_storage_after_count_observation:$('storage').value||'unknown',cash_storage_closed_after_placement_observation:$('storage-closed').value||'unknown',storage_stage_coverage:$('storage-coverage').value||'unknown',
+ comment:$('comment').value,confirmed:issues.length===0&&$('confirmed').checked,review_scope:'human_native_video_event_windows',frame_accurate_boundaries:false,
+ automatic_legal_verdict:false,identity_verification_established:false,draft_issues:issues,saved_at:new Date().toISOString()};
+ const text=JSON.stringify(data,null,2);$('json').value=text;stash();const url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=payload.review_session+'-order-review.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
+ $('status').textContent=data.confirmed?'Проверка сохранена':'Черновик сохранён'+(issues.length?': '+issues.join(', '):'');
+}
+</script></html>

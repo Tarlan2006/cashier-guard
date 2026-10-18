@@ -1,0 +1,12 @@
+numpy==2.5.2
+pillow==12.3.0
+scipy==1.18.1
+opencv-python-headless==5.0.0.93
+onnxruntime==1.31.0
+torch==2.14.1
+torchvision==0.29.1
+transformers==5.20.1
+onnx==1.23.2
+
+# Shared ml2 VideoReader uses source PTS via PyAV.
+av==19.0.1

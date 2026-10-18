@@ -1,0 +1,38 @@
+<!doctype html><html lang="ru"><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'">
+<title>Автоматический поиск похожего документа</title>
+<style>body{font:17px system-ui;max-width:1200px;margin:24px auto;padding:16px;background:#f5f7fa}aside{padding:16px;background:#fff0cc}#cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}article{padding:16px;background:white;border-radius:12px}img{width:100%;image-rendering:auto}label{display:block;margin:12px 0}button,select,textarea{font:inherit;padding:8px;max-width:100%}textarea{width:95%}#status{font-weight:bold}</style>
+<h1>Поиск документа без рамки на каждом видео</h1>
+<aside>Образец — отмеченный тобой документ из Х‑3. В Х‑1 и Х‑2 поиск выполнен автоматически по одному фиксированному участку этой камеры. Рамки A/B/C — только похожие участки, не распознанные удостоверения. При выборе моментов учтены сходство и изменения между соседними кадрами; движение само по себе не доказывает предъявление. Если нужного предмета здесь нет, это не доказывает его отсутствия во всём ролике. Деньги, бумага и руки могут дать ложные совпадения.</aside>
+<p>Для каждого кадра выбери рамку, которая действительно охватывает документ, либо «Ни одна». Это проверка найденных участков; повторно обводить ничего не нужно.</p>
+<div id="cards"></div>
+<label>Комментарий <textarea id="comment" rows="2"></textarea></label>
+<label><input id="confirmed" type="checkbox">Подтверждаю ответы по всем показанным кадрам.</label>
+<button id="save" onclick="save()">Сохранить проверку / черновик</button><p id="status"></p>
+<details><summary>JSON, если скачивание не сработало</summary><textarea id="json" rows="8" readonly></textarea></details>
+<script>
+const payload=__PAYLOAD__,key='document-search-review-'+payload.review_session;
+let answers={};try{answers=JSON.parse(localStorage.getItem(key)||'{}')}catch(e){}
+function stash(){try{localStorage.setItem(key,JSON.stringify(answers))}catch(e){}}
+for(const item of payload.cards){
+ const card=document.createElement('article'),title=document.createElement('h2'),image=document.createElement('img'),select=document.createElement('select');
+ title.textContent=item.source_name+' · '+item.timestamp_sec.toFixed(3)+' с';image.src=item.image;
+ for(const [value,label] of [['','Выбери'],['A','Документ в A'],['B','Документ в B'],['C','Документ в C'],['none','Ни одна рамка не охватывает документ'],['unclear','Не могу различить']]){
+  const option=document.createElement('option');option.value=value;option.textContent=label;select.appendChild(option);
+ }
+ select.id='answer-'+item.key;select.value=answers[item.key]||'';
+ select.onchange=()=>{answers[item.key]=select.value;stash()};
+ card.append(title,image,select);document.getElementById('cards').appendChild(card);
+}
+function save(){
+ const reviews=payload.cards.map(({image,...item})=>({...item,human_selection:document.getElementById('answer-'+item.key).value}));
+ const confirmed=document.getElementById('confirmed').checked&&reviews.every(r=>r.human_selection);
+ const data={schema_version:payload.schema_version,review_session:payload.review_session,protocol_sha256:payload.protocol_sha256,candidate_manifest_sha256:payload.candidate_manifest_sha256,
+ approved_for_rule_engine:false,confirmed,reviews,comment:document.getElementById('comment').value,
+ review_scope:'human_review_of_automatically_ranked_sampled_frame_candidates',absence_detection_validated:false,saved_at:new Date().toISOString()};
+ const text=JSON.stringify(data,null,2);document.getElementById('json').value=text;stash();
+ const url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=document.createElement('a');
+ a.href=url;a.download=payload.review_session+'-candidate-review.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
+ document.getElementById('status').textContent=confirmed?'Проверка сохранена':'Черновик сохранён — ответы можно дописать позже';
+}
+</script></html>

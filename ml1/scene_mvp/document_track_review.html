@@ -1,0 +1,42 @@
+<!doctype html><html lang="ru"><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'">
+<title>Сопровождение отмеченного документа</title>
+<style>body{font:18px system-ui;max-width:1100px;margin:24px auto;padding:16px}aside{background:#fff0cc;padding:16px}#player{width:100%;height:56vh;object-fit:contain;background:#edf2f8}button,select,textarea,input{font:inherit;margin:8px;padding:8px}label{display:block}#time{width:65%}textarea{width:95%}</style>
+<h1>Х‑4 · документ в соседних кадрах</h1>
+<aside>Опорная область на 12,5 с взята из твоего ответа «A». SAM сопровождает этот участок на коротком фрагменте с выборкой около четырёх кадров в секунду. Тип предмета модель не определяет. Маска может перейти на руку или банкноты; пропадание маски означает неизвестность. Увеличение кадра не восстанавливает мелкие детали.</aside>
+<p>Проверь, остаётся ли зелёная маска на том же предмете до и после опорного кадра. Маска показана и при отклонении по размеру; состояние указано рядом со временем.</p>
+<img id="player"><p id="info"></p><button onclick="show(index-1)">←</button><button onclick="play()">Воспроизвести / пауза</button><button onclick="show(index+1)">→</button><input id="time" type="range" min="0" oninput="show(Number(this.value))">
+<label>Маска на просмотренных кадрах <select id="answer"><option value="">Выбери</option><option value="correct_on_reviewed_frames">Верна на просмотренных кадрах</option><option value="incorrect_on_reviewed_frames">Местами неверна / перескакивает</option><option value="unclear">Не могу различить</option></select></label>
+<fieldset><legend>Что наблюдается в этом фрагменте? Можно отметить несколько действий.</legend>
+<label><input type="checkbox" id="motion-held">Предмет поднимают / держат в руке</label>
+<label><input type="checkbox" id="motion-passed">Предмет передают между людьми</label>
+<label><input type="checkbox" id="motion-desk">Предмет лежит на столе</label>
+<label><input type="checkbox" id="motion-other">Другое</label>
+<label><input type="checkbox" id="motion-unclear">Часть действий неясна</label></fieldset>
+<label>Где ошибка, если есть: <textarea id="comment" rows="2"></textarea></label>
+<label><input id="confirmed" type="checkbox">Подтверждаю ответ по просмотренным кадрам.</label>
+<button onclick="save()">Сохранить проверку / черновик</button><p id="status"></p>
+<details><summary>JSON, если скачивание не сработало</summary><textarea id="json" rows="8" readonly></textarea></details>
+<script>
+const payload=__PAYLOAD__;let index=payload.anchor_index,timer=null;
+const storageKey='document-track-review-'+payload.review_session;
+const actionControls={'motion-held':'lifted_or_held_in_hand','motion-passed':'passed_between_people','motion-desk':'lying_on_desk','motion-other':'other','motion-unclear':'unclear'};
+function getActions(){return Object.entries(actionControls).filter(([id])=>document.getElementById(id).checked).map(([,value])=>value)}
+try{const old={...JSON.parse(localStorage.getItem(storageKey)||'{}'),...(payload.initial_review||{})};for(const id of ['answer','comment'])document.getElementById(id).value=old[id]||'';const actions=(Array.isArray(old.actions)?old.actions:old.motion?[old.motion]:[]).map(v=>v==='lying_on_desk_only'?'lying_on_desk':v);for(const [id,value] of Object.entries(actionControls))document.getElementById(id).checked=actions.includes(value)}catch(e){}
+document.getElementById('time').max=payload.frames.length-1;
+function show(i){index=Math.max(0,Math.min(payload.frames.length-1,i));const f=payload.frames[index];document.getElementById('player').src=f.image;document.getElementById('time').value=index;document.getElementById('info').textContent=f.time.toFixed(3)+' с · '+f.state+(index===payload.anchor_index?' · опорный кадр':'')}
+function play(){if(timer){clearInterval(timer);timer=null}else timer=setInterval(()=>show((index+1)%payload.frames.length),250)}
+function stash(){try{localStorage.setItem(storageKey,JSON.stringify({answer:document.getElementById('answer').value,comment:document.getElementById('comment').value,actions:getActions()}))}catch(e){}}
+for(const id of ['answer','comment',...Object.keys(actionControls)])document.getElementById(id).onchange=stash;
+function save(){
+ const data={schema_version:2,review_kind:'reviewed_document_track_review',review_session:payload.review_session,
+ source_session:payload.source_session,source_video_sha256:payload.source_video_sha256,protocol_sha256:payload.protocol_sha256,
+ human_mask_review:document.getElementById('answer').value,human_observed_actions:getActions(),
+ comment:document.getElementById('comment').value,confirmed:!!(document.getElementById('answer').value&&document.getElementById('confirmed').checked),
+ review_scope:'user_reviewed_sampled_clip_frames_only',approved_for_rule_engine:false,identity_verification_established:false,saved_at:new Date().toISOString()};
+ const text=JSON.stringify(data,null,2);document.getElementById('json').value=text;stash();
+ const url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=payload.review_session+'-track-review.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
+ document.getElementById('status').textContent=data.confirmed?'Проверка сохранена':'Черновик сохранён';
+}
+show(index);
+</script></html>
