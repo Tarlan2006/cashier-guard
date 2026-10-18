@@ -21,6 +21,7 @@ def free_port():
         return str(probe.getsockname()[1])
 
 
+@pytest.mark.skipif(os.name != "posix", reason="Native launcher is POSIX only")
 def test_missing_matching_does_not_start_backend_or_models(monkeypatch, free_port):
     monkeypatch.setattr(stack, "health", lambda url: {} if ":8001/" in url else None)
     monkeypatch.setattr(stack.shutil, "which", lambda *_, **__: "/usr/bin/ffmpeg")
