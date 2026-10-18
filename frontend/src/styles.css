@@ -163,12 +163,13 @@ svg {
   min-width: 0;
 }
 .top-navigation button {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
   min-height: 36px;
-  padding: 7px 12px;
+  padding: 7px 9px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
@@ -2715,4 +2716,287 @@ select:focus-visible {
     gap: 8px;
     flex-wrap: wrap;
   }
+}
+
+/* Additional operations retain the existing console palette and focus styles. */
+.batch-uploads,
+.queue-navigation {
+  padding: 20px;
+  margin-bottom: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.batch-uploads > label,
+.tags-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+.batch-uploads input,
+.tags-editor input {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: white;
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink);
+}
+.batch-list,
+.queue-list {
+  list-style: none;
+  margin: 16px 0;
+  padding: 0;
+}
+.batch-list li {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.batch-file {
+  min-width: 0;
+}
+.batch-file strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.batch-file small {
+  display: block;
+  color: #475569;
+  margin-top: 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.batch-actions,
+.batch-toolbar,
+.result-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.batch-actions {
+  justify-content: end;
+  flex-shrink: 0;
+  max-width: 52%;
+}
+.file-retry {
+  position: relative;
+  overflow: hidden;
+}
+.file-retry input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+}
+.file-retry:focus-within {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+.batch-toolbar {
+  margin-top: 16px;
+}
+.result-tools {
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.pdf-download {
+  min-width: 0;
+}
+.pdf-download .form-error {
+  font-size: 13px;
+}
+.tags-editor {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.tags-editor small {
+  display: block;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 8px 0;
+}
+.tags-editor button {
+  margin-top: 4px;
+}
+.tag-list {
+  font-size: 12px;
+  color: #475569;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+.queue-list {
+  display: grid;
+  gap: 12px;
+}
+.queue-list li {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.queue-frame {
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #f1f5f9;
+  display: grid;
+  place-items: center;
+  color: #475569;
+  font-size: 12px;
+}
+.queue-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.queue-event-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.queue-event-copy > strong {
+  font-size: 15px;
+}
+.queue-event-copy p {
+  margin-top: 7px;
+  font-size: 13px;
+}
+.queue-event-copy small {
+  display: block;
+  margin-top: 7px;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.8;
+  font-variant-numeric: tabular-nums;
+}
+.queue-progress {
+  font-size: 14px;
+  font-weight: 600;
+}
+.queue-navigation {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+}
+.queue-navigation p {
+  margin-top: 6px;
+  font-size: 14px;
+}
+.queue-navigation > small {
+  width: 100%;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.8;
+}
+.decision-log {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+.decision-log summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+.decision-log ol {
+  padding-left: 20px;
+}
+.decision-log li {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.decision-log time {
+  display: block;
+  color: #475569;
+  font-size: 12px;
+  margin-top: 5px;
+}
+.decision-log p {
+  margin-top: 7px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+.cancelled-result {
+  text-align: center;
+  padding: 35px 10px;
+}
+.cancelled-result p {
+  font-size: 14px;
+  line-height: 1.8;
+  color: #475569;
+  margin: 14px 0;
+}
+@media (max-width: 1200px) {
+  .header-inner {
+    flex-wrap: wrap;
+  }
+  .top-navigation {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 760px) {
+  .top-navigation > button:last-child {
+    grid-column: auto;
+  }
+  .batch-uploads,
+  .queue-navigation {
+    padding: 17px;
+  }
+  .batch-list li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .batch-actions {
+    max-width: none;
+    justify-content: start;
+  }
+  .batch-actions > *,
+  .batch-toolbar > * {
+    flex: 1;
+  }
+  .queue-list li {
+    grid-template-columns: 100px minmax(0, 1fr);
+    gap: 14px;
+    padding: 17px;
+  }
+  .queue-list li > button {
+    grid-column: 1/-1;
+    min-height: 42px;
+  }
+  .queue-frame {
+    width: 100px;
+  }
+  .queue-navigation > button {
+    width: 100%;
+  }
+}
+.batch-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.batch-uploads > .panel-heading {
+  flex-wrap: wrap;
+  gap: 10px;
 }

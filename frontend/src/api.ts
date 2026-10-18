@@ -28,10 +28,11 @@ export type Violation = {
 };
 export type Job = {
   job_id: string;
-  status: "processing" | "done" | "failed";
+  status: "processing" | "done" | "failed" | "cancelled";
   stage: string;
   mode: "demo" | "live";
   filename: string;
+  tags?: string[];
   duration_sec: number | null;
   source_time_offset_sec?: number | null;
   video_available?: boolean;
@@ -44,6 +45,7 @@ export type Job = {
   error_code?: string | null;
   size_bytes?: number;
   created_at?: string;
+  completed_at?: string | null;
   deadline_at?: string | null;
   expires_at?: string | null;
   timings_sec?: Record<string, number>;
@@ -206,7 +208,7 @@ export function parseJob(value: Job, expectedId: string): Job {
   if (
     !value ||
     value.job_id !== expectedId ||
-    !["processing", "done", "failed"].includes(value.status) ||
+    !["processing", "done", "failed", "cancelled"].includes(value.status) ||
     !["demo", "live"].includes(value.mode) ||
     typeof value.filename !== "string" ||
     typeof value.stage !== "string" ||
@@ -358,6 +360,7 @@ export function scrollBehavior(): ScrollBehavior {
 export type HistoryItem = {
   job_id: string;
   filename: string;
+  tags?: string[];
   created_at: string;
   completed_at: string | null;
   expires_at: string;
@@ -390,3 +393,96 @@ export type Analytics = {
   }[];
   date_basis: "created_at";
 };
+
+export type QueueEvent = {
+  job_id: string;
+  event_id: string;
+  category_id: string;
+  type: string;
+  timecode_sec: number;
+  filename: string;
+  tags: string[];
+  created_at: string;
+  mode: Job["mode"];
+  frame: Frame | null;
+};
+export type QueuePage = {
+  items: QueueEvent[];
+  total: number;
+  total_events: number;
+  reviewed_events: number;
+  page: number;
+  page_size: number;
+};
+export type QueueOptions = {
+  types: { category_id: string; type: string }[];
+  tags: string[];
+};
+export type ReviewLog = {
+  items: {
+    id: number;
+    event_id: string;
+    type: string;
+    changed_at: string;
+    previous: HumanReview | null;
+    current: HumanReview;
+    origin: "review" | "migration_snapshot";
+  }[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+export function parseTags(text: string): string[] {
+  const tags = Array.from(
+    new Set(
+      text
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+    ),
+  );
+  if (tags.length > 10 || tags.some((t) => t.length > 64))
+    throw new Error("Не более 10 меток, каждая до 64 символов.");
+  return tags;
+}
+export async function submitVideo(
+  file: File,
+  key: string,
+  options: { signal?: AbortSignal; requestKey?: string; tags?: string[] } = {},
+  transport: typeof request = request,
+) {
+  const body = new FormData();
+  body.append("file", file);
+  body.append("tags", JSON.stringify(options.tags ?? []));
+  const response = await transport<{ job_id: string }>("/analyze", key.trim(), {
+    method: "POST",
+    body,
+    signal: options.signal,
+    timeoutMs: 65000,
+    headers: options.requestKey
+      ? { "Idempotency-Key": options.requestKey }
+      : {},
+  });
+  if (!response || !/^[a-zA-Z0-9_-]{1,100}$/.test(response.job_id))
+    throw new ApiError("protocol", "Сервис не вернул идентификатор проверки.");
+  return response;
+}
+export async function fetchJob(id: string, key: string, signal?: AbortSignal) {
+  return parseJob(
+    await request<Job>(`/jobs/${encodeURIComponent(id)}`, key.trim(), {
+      signal,
+      timeoutMs: 8000,
+      retries: 2,
+    }),
+    id,
+  );
+}
+export async function cancelJob(id: string, key: string) {
+  return parseJob(
+    await request<Job>(`/jobs/${encodeURIComponent(id)}/cancel`, key.trim(), {
+      method: "POST",
+      timeoutMs: 10000,
+    }),
+    id,
+  );
+}

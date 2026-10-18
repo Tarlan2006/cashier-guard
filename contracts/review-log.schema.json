@@ -1,0 +1,119 @@
+{
+  "$defs": {
+    "HumanReview": {
+      "properties": {
+        "decision": {
+          "default": "unreviewed",
+          "enum": [
+            "unreviewed",
+            "confirmed",
+            "rejected"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "comment": {
+          "default": "",
+          "maxLength": 4000,
+          "title": "Comment",
+          "type": "string"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        }
+      },
+      "title": "HumanReview",
+      "type": "object"
+    },
+    "ReviewLogEntry": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "integer"
+        },
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "changed_at": {
+          "title": "Changed At",
+          "type": "string"
+        },
+        "previous": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HumanReview"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "current": {
+          "$ref": "#/$defs/HumanReview"
+        },
+        "origin": {
+          "enum": [
+            "review",
+            "migration_snapshot"
+          ],
+          "title": "Origin",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "event_id",
+        "type",
+        "changed_at",
+        "previous",
+        "current",
+        "origin"
+      ],
+      "title": "ReviewLogEntry",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "items": {
+      "items": {
+        "$ref": "#/$defs/ReviewLogEntry"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "total": {
+      "title": "Total",
+      "type": "integer"
+    },
+    "page": {
+      "title": "Page",
+      "type": "integer"
+    },
+    "page_size": {
+      "title": "Page Size",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "items",
+    "total",
+    "page",
+    "page_size"
+  ],
+  "title": "ReviewLogPage",
+  "type": "object"
+}

@@ -10,10 +10,14 @@ dependencies = [
   "httpx>=0.28,<1",
   "python-dotenv>=1.0,<2",
   "pillow>=11.3,<13",
+  "reportlab>=4.4,<5",
 ]
 
 [dependency-groups]
-dev = ["pytest>=8,<10"]
+dev = [
+    "pypdf>=5,<7",
+    "pytest>=8,<10",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

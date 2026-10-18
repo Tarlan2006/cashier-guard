@@ -46,6 +46,7 @@ beforeEach(() => {
   reviewMock.mockReturnValue({
     open: vi.fn(),
     applyHumanReview: vi.fn(),
+    applyTags: vi.fn(),
     job: null,
     phase: "idle",
     issue: null,
@@ -95,7 +96,7 @@ describe("video formats in the upload form", () => {
       type,
     });
     fireEvent.drop(
-      screen.getByRole("button", { name: /Перетащите видео сюда/ }),
+      screen.getByRole("button", { name: /Перетащите до 10 видео сюда/ }),
       {
         dataTransfer: { files: [file] },
       },
@@ -140,7 +141,7 @@ describe("video formats in the upload form", () => {
         });
       } else {
         fireEvent.drop(
-          screen.getByRole("button", { name: /Перетащите видео сюда/ }),
+          screen.getByRole("button", { name: /Перетащите до 10 видео сюда/ }),
           {
             dataTransfer: { files: [file] },
           },
@@ -272,7 +273,7 @@ describe("live-only video analysis", () => {
   it("starts with file selection and removes the analysis action when the file is removed", () => {
     render(<App />);
     expect(
-      screen.getByRole("button", { name: /Перетащите видео сюда/ }),
+      screen.getByRole("button", { name: /Перетащите до 10 видео сюда/ }),
     ).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: "Проверить видео" }),

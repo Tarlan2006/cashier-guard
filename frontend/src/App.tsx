@@ -8,6 +8,7 @@ import {
   Terminal,
   Video,
   History,
+  ListChecks,
   BarChart3,
   Eye,
   Info,
@@ -18,6 +19,16 @@ import {
   Settings,
   Upload,
 } from "lucide-react";
+import { pruneDrafts } from "./reviewDrafts";
+import { useBatch } from "./hooks/useBatch";
+import { BatchUploads } from "./components/BatchUploads";
+import {
+  ReviewQueuePanel,
+  QueueNavigation,
+  defaultQueueFilters,
+} from "./components/ReviewQueue";
+import type { QueueFilters } from "./components/ReviewQueue";
+import type { QueueEvent } from "./api";
 import type { Frame } from "./api";
 import { readKey, useReview } from "./hooks/useReview";
 import { useServiceStatus } from "./hooks/useServiceStatus";
@@ -45,6 +56,7 @@ import {
 const sections = [
   { id: "workspace", label: "Проверка видео", icon: Video },
   { id: "history", label: "История", icon: History },
+  { id: "review-queue", label: "На рассмотрении", icon: ListChecks },
   { id: "analytics", label: "Аналитика", icon: BarChart3 },
   { id: "regulations", label: "Нормативы РК", icon: BookOpen },
   { id: "api", label: "API", icon: Terminal },
@@ -57,6 +69,14 @@ export default function App() {
   const [historyFilters, setHistoryFilters] =
     useState<HistoryFilters>(emptyFilters);
   const [key, setKey] = useState(readKey);
+  const [queueFilters, setQueueFilters] =
+    useState<QueueFilters>(defaultQueueFilters);
+  const [queueContext, setQueueContext] = useState<{
+    filters: QueueFilters;
+    eventId: string;
+  } | null>(null);
+  const [decisionRevision, setDecisionRevision] = useState(0);
+  const targetEvent = useRef<QueueEvent | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [canPreview, setCanPreview] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -70,15 +90,83 @@ export default function App() {
   const preview = useRef<VideoHandle>(null);
   const reattaching = useRef(false);
   const maxMB = service.health?.max_upload_mb ?? 100;
+  const batch = useBatch(key, maxMB);
   const analysisAvailable =
     service.health?.mode === "live" &&
     service.readiness?.mode === "live" &&
     service.readiness.ready === true;
 
   useEffect(() => {
+    pruneDrafts();
+    const timer = setInterval(pruneDrafts, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     setActiveEvent(0);
     setFrame(null);
   }, [review.job?.job_id]);
+
+  useEffect(() => {
+    const target = targetEvent.current;
+    if (
+      target &&
+      review.job?.job_id === target.job_id &&
+      review.job.status === "done"
+    ) {
+      const index = review.job.violations.findIndex(
+        (e) => e.event_id === target.event_id,
+      );
+      if (index >= 0) setActiveEvent(index);
+      if (canPreview) {
+        preview.current?.seek(target.timecode_sec);
+        targetEvent.current = null;
+      }
+    }
+  }, [review.job?.job_id, review.job?.status, canPreview]);
+
+  function openCheck(id: string) {
+    targetEvent.current = null;
+    setQueueContext(null);
+    setFile(null);
+    setCanPreview(false);
+    setFileError("");
+    setFrame(null);
+    setActiveEvent(0);
+    review.open(id);
+    setActiveTab("workspace");
+  }
+  function openQueueEvent(
+    item: QueueEvent,
+    filters: QueueFilters = queueFilters,
+  ) {
+    setFile(null);
+    setCanPreview(false);
+    setFileError("");
+    setFrame(null);
+    setActiveEvent(0);
+    targetEvent.current = item;
+    setQueueContext({
+      filters,
+      eventId: item.event_id,
+    });
+    review.open(item.job_id);
+    setActiveTab("workspace");
+  }
+  function selectFiles(selected: File[]) {
+    if (reattaching.current) {
+      selectFile(selected[0], true);
+      return;
+    }
+    if (selected.length > 1 || batch.rows.length) {
+      if (review.busy) return;
+      batch.add(selected);
+      setFile(null);
+      setFileError("");
+      return;
+    }
+    selectFile(selected[0]);
+  }
 
   useEffect(() => {
     const heading = Array.from(
@@ -91,6 +179,8 @@ export default function App() {
   }, [activeTab]);
 
   function reset() {
+    targetEvent.current = null;
+    setQueueContext(null);
     review.reset();
     setFile(null);
     setCanPreview(false);
@@ -241,6 +331,23 @@ export default function App() {
                 </button>
               </div>
             </div>
+            <BatchUploads
+              batch={batch}
+              focusJobId={review.job?.job_id}
+              available={analysisAvailable}
+              hasKey={!!key.trim()}
+              onSettings={() => setActiveTab("settings")}
+              onOpen={openCheck}
+            />
+            {queueContext && (
+              <QueueNavigation
+                apiKey={key}
+                filters={queueContext.filters}
+                eventId={queueContext.eventId}
+                revision={decisionRevision}
+                onOpen={(item) => openQueueEvent(item, queueContext.filters)}
+              />
+            )}
             {service.checked && !analysisAvailable && (
               <div className="alert error readiness-alert" role="alert">
                 <AlertCircle size={20} />
@@ -303,12 +410,13 @@ export default function App() {
                   id="video-file"
                   className="visually-hidden"
                   type="file"
+                  multiple
                   accept={VIDEO_ACCEPT}
                   disabled={review.busy}
                   tabIndex={-1}
                   aria-label="Видео для проверки"
                   onChange={(e) => {
-                    selectFile(e.target.files?.[0], reattaching.current);
+                    selectFiles(Array.from(e.target.files ?? []));
                     e.target.value = "";
                   }}
                 />
@@ -354,7 +462,8 @@ export default function App() {
                     onDrop={(e) => {
                       e.preventDefault();
                       setDragging(false);
-                      selectFile(e.dataTransfer.files[0]);
+                      reattaching.current = false;
+                      selectFiles(Array.from(e.dataTransfer.files));
                     }}
                   >
                     <div className="upload-symbol">
@@ -363,7 +472,7 @@ export default function App() {
                     <strong>
                       {dragging
                         ? "Отпустите файл здесь"
-                        : "Перетащите видео сюда"}
+                        : "Перетащите до 10 видео сюда"}
                     </strong>
                     <span className="file-pick">
                       Выбрать видео
@@ -448,9 +557,16 @@ export default function App() {
                 hasKey={!!key.trim()}
                 onOpenSettings={() => setActiveTab("settings")}
                 apiKey={key}
+                onCancelDone={() => {
+                  review.resume();
+                  batch.refresh();
+                }}
+                onTagsSaved={review.applyTags}
+                decisionRevision={decisionRevision}
                 onReviewSaved={(eventId, value) => {
                   if (review.job)
                     review.applyHumanReview(review.job.job_id, eventId, value);
+                  setDecisionRevision((n) => n + 1);
                 }}
               />
             </div>
@@ -520,19 +636,21 @@ export default function App() {
               onFilters={setHistoryFilters}
               canOpen={!review.busy}
               onSettings={() => setActiveTab("settings")}
-              onOpen={(jobId) => {
-                setFile(null);
-                setCanPreview(false);
-                setFileError("");
-                setFrame(null);
-                setActiveEvent(0);
-                review.open(jobId);
-                setActiveTab("workspace");
-              }}
+              onOpen={openCheck}
               onDeleted={(jobId) => {
                 if (review.restoredId === jobId || review.job?.job_id === jobId)
                   reset();
               }}
+            />
+          )}
+          {activeTab === "review-queue" && (
+            <ReviewQueuePanel
+              apiKey={key}
+              filters={queueFilters}
+              onFilters={setQueueFilters}
+              onOpen={(item) => openQueueEvent(item)}
+              onSettings={() => setActiveTab("settings")}
+              revision={decisionRevision}
             />
           )}
           {activeTab === "analytics" && (
@@ -548,7 +666,8 @@ export default function App() {
           {activeTab !== "workspace" &&
             activeTab !== "settings" &&
             activeTab !== "history" &&
-            activeTab !== "analytics" && (
+            activeTab !== "analytics" &&
+            activeTab !== "review-queue" && (
               <WorkspaceSections tab={activeTab} job={review.job} />
             )}
           <footer>

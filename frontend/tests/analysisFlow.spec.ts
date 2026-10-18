@@ -24,7 +24,7 @@ for (const width of [1440, 390]) {
       page.getByText("Анализ видео пока недоступен", { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /Перетащите видео сюда/ }),
+      page.getByRole("button", { name: /Перетащите до 10 видео сюда/ }),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Проверить видео", exact: true }),

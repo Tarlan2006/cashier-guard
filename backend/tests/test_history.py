@@ -168,7 +168,7 @@ def test_legacy_migration_preserves_payload_and_stable_ids(tmp_path,monkeypatch,
         assert datetime.fromisoformat(job['expires_at']).timestamp()>now+700*3600
         assert job['video_unavailable_reason']=='not_retained'
         assert client.get('/api/v1/jobs',headers=HEADERS).json()['total']==1
-        assert client.portal.call(lambda:client.app.state.store.connection.execute('PRAGMA user_version').fetchone()[0])==2
+        assert client.portal.call(lambda:client.app.state.store.connection.execute('PRAGMA user_version').fetchone()[0])==3
         assert client.patch(f'/api/v1/jobs/legacy/events/{event_id}/review',headers=HEADERS,json={'decision':'rejected','comment':'Legacy review'}).status_code==200
     with TestClient(create_app(config)) as restarted:
         restored=restarted.get('/api/v1/jobs/legacy',headers=HEADERS).json()

@@ -2,6 +2,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import { request, ApiError } from "../api";
 import type { HumanReview, Violation } from "../api";
 
+import { readDraft, writeDraft } from "../reviewDrafts";
+
 export const decisionLabels = {
   unreviewed: "Не рассмотрено",
   confirmed: "Подтверждено",
@@ -13,7 +15,9 @@ export function EventReview({
   apiKey,
   onSaved,
   onOpenSettings,
+  expiresAt,
 }: {
+  expiresAt?: string | null;
   event: Violation;
   jobId: string;
   apiKey: string;
@@ -21,16 +25,39 @@ export function EventReview({
   onOpenSettings?: () => void;
 }) {
   const saved = event.human_review;
+  const draftKey = `${jobId}:${event.event_id}`;
+  const draft = readDraft(draftKey);
   const decisionId = useId();
   const [decision, setDecision] = useState<HumanReview["decision"]>(
-    saved?.decision ?? "unreviewed",
+    draft?.decision ?? saved?.decision ?? "unreviewed",
   );
-  const [comment, setComment] = useState(saved?.comment ?? "");
+  const [comment, setComment] = useState(
+    draft?.comment ?? saved?.comment ?? "",
+  );
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
+  useEffect(() => {
+    if (event.event_id)
+      writeDraft(
+        draftKey,
+        decision === (saved?.decision ?? "unreviewed") &&
+          comment === (saved?.comment ?? "")
+          ? null
+          : { decision, comment },
+        expiresAt,
+      );
+  }, [
+    draftKey,
+    decision,
+    comment,
+    saved?.decision,
+    saved?.comment,
+    expiresAt,
+    event.event_id,
+  ]);
   if (!event.event_id)
     return (
       <p className="review-note">
@@ -68,6 +95,7 @@ export function EventReview({
           )
             throw new ApiError("protocol", "Решение не подтверждено сервером.");
           if (!cancel.signal.aborted) {
+            writeDraft(draftKey, null);
             onSaved(eventId, result);
             setMessage("Решение сохранено");
           }

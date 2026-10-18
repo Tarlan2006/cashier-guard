@@ -361,6 +361,9 @@ class TerminalCommitFault:
             self.fail_commit = self.enabled and (self.permanent or self.failures == 0)
         return result
 
+    def executemany(self, statement, parameters):
+        return self.connection.executemany(statement, parameters)
+
     def commit(self):
         if self.fail_commit:
             import sqlite3
