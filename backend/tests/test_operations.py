@@ -184,7 +184,12 @@ def test_cancel_reaps_managed_video_subprocess(tmp_path,monkeypatch):
         assert pidfile.exists();pid=int(pidfile.read_text())
         assert c.post(f'/api/v1/jobs/{jid}/cancel',headers=HEADERS).json()['status']=='cancelled'
         import pytest
-        with pytest.raises(ProcessLookupError):os.kill(pid,0)
+        if os.name == "nt":
+            with pytest.raises(OSError) as error:
+                os.kill(pid,0)
+            assert isinstance(error.value, ProcessLookupError) or getattr(error.value, "winerror", None) == 87
+        else:
+            with pytest.raises(ProcessLookupError):os.kill(pid,0)
         assert not list(config.storage.glob('*.upload'))
 
 
