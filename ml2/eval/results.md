@@ -75,3 +75,23 @@ ML-инференс локальный, без обучения и новых з
 вердиктом, run_chain возвращает 1. Защищённые backend/app не исправлялись.
 Отчёт: [chain/report.md](chain/report.md). Новые материалы требуют отдельного
 подтверждения push; e196bbd уже отправлен по явному подтверждению.
+
+## 2026-10-18 — таймауты ML2 и RUNBOOK для Linux backend
+
+База `3042ed7`, main. Предлагаемый патч обновлён: ML1 read/total=180/190 с,
+ML2=90/100 с. `git apply --check` проходит; тесты применяют патч только к копии
+и проверяют read, раздельные total deadlines и неизменность исходного backend.
+Полный ML suite: **183 passed, 9,000 с**. ML-логика, конфиги и зависимости
+не менялись; добавлен только параметр host в запуск транспортных процессов.
+
+`wsl --status`: код 50, WSL не установлен. Docker CLI и стандартные файлы Docker
+Desktop отсутствуют. Linux POST-прогон видео 2/14 **BLOCKED**, новых вердиктов,
+числа событий и времени нет. Обхода нормализации/квот и установки Linux не было.
+
+Добавлены `scripts/launch_chain.py`, backend-only Dockerfile с ограниченным
+build context и [RUNBOOK](chain/RUNBOOK.md). Linux: патч в копии cache, три
+локальных процесса. Windows: Docker Linux backend, Windows ML1/matching,
+адреса host.docker.internal. Загрузка моделей/ключ в Docker image не включены.
+Настоящий Docker build, Linux runtime и межсистемная сеть здесь не проверены.
+Проверен явный отказ launcher до запуска моделей при отсутствии Docker.
+Все изменения остаются локальными; push не выполнялся.

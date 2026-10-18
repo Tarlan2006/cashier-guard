@@ -76,10 +76,10 @@ class TimeoutPatchTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             video=Path(directory)/'video.mp4';video.write_bytes(b'synthetic transport bytes')
             result=asyncio.run(values['analyze'](video,10,settings,'unused',lambda _:None))
-        self.assertEqual(seen,dict(ml1=180,ml2=30))
+        self.assertEqual(seen,dict(ml1=180,ml2=90))
         self.assertEqual(result,dict(verdict='no_violation',violations=[]))
         self.assertEqual(values['ML_REQUEST_TIMEOUT_SECONDS'],190)
-        self.assertEqual(values['ML2_REQUEST_TIMEOUT_SECONDS'],35)
+        self.assertEqual(values['ML2_REQUEST_TIMEOUT_SECONDS'],100)
 
 
 if __name__=='__main__':unittest.main()

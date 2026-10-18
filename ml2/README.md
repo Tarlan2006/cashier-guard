@@ -117,7 +117,7 @@ py -3.12 -m venv .venv
 `rtdetr_r18vd/` и `siglip-base-patch16-224/`. Конфиг: `configs/perception.json`,
 альтернативный путь — `PERCEPTION_CONFIG`. Для backend на этом CPU рекомендуется `WORKERS=1`.
 
-Тесты на синтетических данных, без исходных видео и весов (проверенный набор — 177):
+Тесты на синтетических данных, без исходных видео и весов (проверенный набор — 183):
 
 ```powershell
 .venv/Scripts/python.exe -m unittest discover -s tests
@@ -128,7 +128,7 @@ py -3.12 -m venv .venv
 к временной копии файла, рабочий backend не изменяется.
 Чистая установка 18.10.2026 проверена в новом окружении без system-site-packages:
 `pip install -r requirements.txt` успешен, `pip check` не выявил проблем,
-Базовые 142 теста прошли; набор v8 — 160, с проверками транспорта — 177 тестов.
+Базовые 142 теста прошли; набор v8 — 160, с проверками транспорта и launcher — 183 теста.
 HTTP-проверка выше выполнена тем же окружением с существующими
 локальными весами и однократной загрузкой моделей при старте сервиса.
 
@@ -187,7 +187,7 @@ Unix-only `signal.SIGXFSZ` и `resource.RLIMIT_FSIZE`. Полный прогон
 
 Предлагаемый патч [patches/backend-ml-timeouts.patch](patches/backend-ml-timeouts.patch)
 увеличивает только сетевой бюджет ML1 до read=180 с / total=190 с,
-задаёт ML2 read=30 с / total=35 с и сохраняет общий дедлайн job.
+задаёт ML2 read=90 с / total=100 с и сохраняет общий дедлайн job.
 Он **не применён** к `backend/app` и не исправляет Windows-совместимость.
 Проверка и применение участником 3 из корня репозитория:
 
@@ -196,6 +196,12 @@ git apply --check ml2/patches/backend-ml-timeouts.patch
 # Только после согласования изменения backend:
 git apply ml2/patches/backend-ml-timeouts.patch
 ```
+
+Запуск трёх сервисов одной командой на Linux или Windows с Docker-backend:
+[RUNBOOK.md](eval/chain/RUNBOOK.md), `scripts/launch_chain.py`.
+На этом компьютере WSL не установлен, Docker не найден; контейнерный запуск
+не проверен. Native backend на Windows запускать через launcher нельзя:
+он останавливается с объяснением до загрузки моделей, без обхода квот.
 
 ## Лицензии
 

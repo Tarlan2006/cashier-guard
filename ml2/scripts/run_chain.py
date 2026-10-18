@@ -65,11 +65,12 @@ def require_free_ports(ports: list[int]) -> None:
 def local_processes(environment: dict, output: Path):
     processes = []
     logs = []
-    def start(python: Path, module: str, cwd: Path, port: int, name: str):
+    def start(python: Path, module: str, cwd: Path, port: int, name: str,
+              host: str = '127.0.0.1'):
         log = (output/f'{name}.log').open('w', encoding='utf-8')
         logs.append(log)
         process = subprocess.Popen([str(python), '-X', 'utf8', '-m', 'uvicorn', module,
-            '--host', '127.0.0.1', '--port', str(port), '--workers', '1', '--no-access-log'],
+            '--host', host, '--port', str(port), '--workers', '1', '--no-access-log'],
             cwd=cwd, env=environment, stdout=log, stderr=subprocess.STDOUT,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0,
             start_new_session=os.name != 'nt')

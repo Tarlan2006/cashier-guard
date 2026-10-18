@@ -1,0 +1,22 @@
+# Allow only backend source, its lockfile, contract fixtures and the patch.
+**
+!backend/
+!backend/app/
+!backend/app/**
+!backend/pyproject.toml
+!backend/uv.lock
+!contracts/
+!contracts/fixtures/
+!contracts/fixtures/**
+!ml2/
+!ml2/patches/
+!ml2/patches/backend-ml-timeouts.patch
+!ml2/docker/
+!ml2/docker/backend.Dockerfile
+!ml2/docker/backend.Dockerfile.dockerignore
+**/__pycache__/
+**/*.pyc
+**/.env
+**/.env.*
+**/*.pem
+**/*.key

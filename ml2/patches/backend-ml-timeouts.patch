@@ -5,9 +5,9 @@ diff --git a/backend/app/pipeline.py b/backend/app/pipeline.py
  MAX_CATALOG_BYTES = 4 * 1024 * 1024
 -ML_REQUEST_TIMEOUT_SECONDS = 120
 +ML_REQUEST_TIMEOUT_SECONDS = 190
-+ML2_REQUEST_TIMEOUT_SECONDS = 35
++ML2_REQUEST_TIMEOUT_SECONDS = 100
 +ML1_READ_TIMEOUT_SECONDS = 180
-+ML2_READ_TIMEOUT_SECONDS = 30
++ML2_READ_TIMEOUT_SECONDS = 90
  DEMO_RULES_PATH = Path(__file__).resolve().parents[2] / "contracts" / "fixtures" / "demo-rules.json"
 @@ -60,3 +63,4 @@
          # Bound both inactivity and total request time; backend bounds the whole job.
