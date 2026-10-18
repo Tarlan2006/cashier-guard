@@ -1,0 +1,48 @@
+name: Backend Linux tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - backend/**
+      - contracts/fixtures/**
+      - .github/workflows/backend-linux.yml
+  pull_request:
+    paths:
+      - backend/**
+      - contracts/fixtures/**
+      - .github/workflows/backend-linux.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.14.0'
+      - name: Install FFmpeg and locked Python dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          python -m pip install uv==0.12.18
+          uv sync --frozen --no-install-project
+      - name: Verify Linux and FFmpeg readrate support
+        run: |
+          uname -a
+          python --version
+          ffmpeg -version
+          ffprobe -version
+          ffmpeg -hide_banner -h full 2>&1 | python -c "import sys; assert '-readrate ' in sys.stdin.read(), 'FFmpeg >= 5.0 with -readrate is required'"
+      - name: Run complete backend test suite
+        run: uv run --frozen pytest -v -ra
