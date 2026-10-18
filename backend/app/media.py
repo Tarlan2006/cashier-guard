@@ -1,8 +1,10 @@
 """Local, bounded video inspection and normalization; no model implementation."""
 
 import asyncio
+import importlib.util
 import json
 import math
+import os
 import signal
 import shutil
 import sys
@@ -80,16 +82,22 @@ async def command(
 
     RLIMIT_FSIZE is applied in an exec wrapper (not preexec_fn in a threaded
     server). FFmpeg -fs alone may overshoot; the OS limit is the hard bound.
+    Windows instead polls the output size, then kills/reaps and removes an
+    over-quota file. Polling can overshoot between checks; it is not an OS cap.
     """
     if shutil.which(args[0]) is None:
         raise PipelineError("FFMPEG_UNAVAILABLE", "FFmpeg недоступен. Обратитесь к администратору сервиса.")
+    poll_output = (os.name == "nt" or not hasattr(signal, "SIGXFSZ")
+                   or importlib.util.find_spec("resource") is None)
+    quota_exceeded = False
     invocation = list(args)
     if output_path is not None:
         if max_bytes is None or max_bytes < 1:
             raise PipelineError("VIDEO_STORAGE_LIMIT", "Недостаточно места для подготовки видео.")
-        invocation = [sys.executable, "-c",
-                      "import os,resource,sys; n=int(sys.argv[1]); resource.setrlimit(resource.RLIMIT_FSIZE,(n,n)); os.execvp(sys.argv[2],sys.argv[2:])",
-                      str(max_bytes), *invocation]
+        if not poll_output:
+            invocation = [sys.executable, "-c",
+                          "import os,resource,sys; n=int(sys.argv[1]); resource.setrlimit(resource.RLIMIT_FSIZE,(n,n)); os.execvp(sys.argv[2],sys.argv[2:])",
+                          str(max_bytes), *invocation]
     try:
         process = await asyncio.create_subprocess_exec(
             *invocation, stdin=asyncio.subprocess.DEVNULL,
@@ -113,10 +121,33 @@ async def command(
         return tail
 
     tasks = [asyncio.create_task(read_stdout()), asyncio.create_task(read_stderr()), asyncio.create_task(process.wait())]
+    async def watch_output():
+        nonlocal quota_exceeded
+        while True:
+            try:
+                size = output_path.stat().st_size
+            except FileNotFoundError:
+                size = 0
+            if size >= max_bytes:
+                quota_exceeded = True
+                raise PipelineError("VIDEO_STORAGE_LIMIT", "Подготовленное видео превышает доступный лимит диска. Выберите файл меньшего размера или разрешения.")
+            # Check the file before checking exit: fast writers may finish
+            # between polls, and their final output must still be rejected.
+            if process.returncode is not None:
+                return
+            await asyncio.sleep(0.01)
+
+    monitor = asyncio.create_task(watch_output()) if poll_output and output_path is not None else None
+    if monitor is not None:
+        tasks.append(monitor)
     try:
-        stdout, stderr, returncode = await asyncio.wait_for(asyncio.gather(*tasks), timeout=max(0, timeout))
+        if monitor is None:
+            stdout, stderr, returncode = await asyncio.wait_for(asyncio.gather(*tasks), timeout=max(0, timeout))
+        else:
+            stdout, stderr, returncode, _ = await asyncio.wait_for(asyncio.gather(*tasks), timeout=max(0, timeout))
         at_limit = output_path is not None and output_path.exists() and output_path.stat().st_size >= max_bytes
-        if at_limit or returncode == -signal.SIGXFSZ or b"no space left on device" in stderr.lower():
+        if at_limit or (not poll_output and returncode == -signal.SIGXFSZ) or b"no space left on device" in stderr.lower():
+            quota_exceeded = poll_output and output_path is not None
             raise PipelineError("VIDEO_STORAGE_LIMIT", "Подготовленное видео превышает доступный лимит диска. Выберите файл меньшего размера или разрешения.")
         if returncode or stderr:
             lower = stderr.lower()
@@ -149,6 +180,8 @@ async def command(
             except asyncio.CancelledError:
                 cancelled = True
         await cleanup
+        if quota_exceeded:
+            output_path.unlink(missing_ok=True)
         if cancelled:
             raise asyncio.CancelledError
 

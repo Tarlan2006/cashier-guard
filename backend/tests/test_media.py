@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -195,7 +196,10 @@ def test_runner_fsize_limit_cannot_be_exceeded_even_without_ffmpeg_fs(tmp_path):
     with pytest.raises(PipelineError) as error:
         asyncio.run(command(sys.executable, "-c", "import sys; open(sys.argv[1],'wb').write(b'x'*100000)", str(output), output_path=output, max_bytes=4096))
     assert error.value.code == "VIDEO_STORAGE_LIMIT"
-    assert output.stat().st_size <= 4096
+    if os.name == "nt":
+        assert not output.exists()  # Polling rejects/deletes; it is not RLIMIT_FSIZE.
+    else:
+        assert output.stat().st_size <= 4096
 
 
 @pytest.mark.parametrize("cancel", [False, True])
@@ -206,18 +210,25 @@ def test_timeout_or_cancel_reaps_real_ffmpeg_and_removes_output(tmp_path, monkey
     children = []
     original = asyncio.create_subprocess_exec
     async def tracked(*args, **kwargs):
+        # Keep ffmpeg running long enough, independent of CPU/spawn speed.
+        # The Unix invocation still includes its exec wrapper before ffmpeg.
+        index = args.index("ffmpeg")
+        args = (*args[:index + 1], "-readrate", "0.01", *args[index + 1:])
         process = await original(*args, **kwargs)
         children.append(process)
         return process
     monkeypatch.setattr(media.asyncio, "create_subprocess_exec", tracked)
     async def run():
-        task = asyncio.create_task(normalize_video(source, output, info, timeout=10 if cancel else 0.01, max_bytes=1_000_000))
+        task = asyncio.create_task(normalize_video(source, output, info, timeout=10, max_bytes=1_000_000))
+        while not children:
+            await asyncio.sleep(0)
         if cancel:
-            while not children:
-                await asyncio.sleep(0)
             task.cancel()
         with pytest.raises(asyncio.CancelledError if cancel else TimeoutError):
-            await task
+            if cancel:
+                await task
+            else:
+                await asyncio.wait_for(task, timeout=0.01)
     asyncio.run(run())
     assert children and all(child.returncode is not None for child in children)
     assert not output.exists()
