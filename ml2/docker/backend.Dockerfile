@@ -15,8 +15,13 @@ COPY contracts/fixtures/ contracts/fixtures/
 COPY ml2/patches/backend-ml-timeouts.patch /opt/backend-ml-timeouts.patch
 # Windows may check out Python sources as CRLF; normalize only the image copy.
 RUN python -c "from pathlib import Path; [p.write_text(p.read_text(encoding='utf-8'), encoding='utf-8', newline='\n') for p in Path('backend/app').rglob('*.py')]" \
-    && git apply --check /opt/backend-ml-timeouts.patch \
-    && git apply /opt/backend-ml-timeouts.patch
+    && if git apply --check /opt/backend-ml-timeouts.patch >/dev/null 2>&1; then \
+         git apply /opt/backend-ml-timeouts.patch; \
+       elif git apply --reverse --check /opt/backend-ml-timeouts.patch >/dev/null 2>&1; then \
+         echo "timeouts already applied"; \
+       else \
+         echo "ERROR: timeout patch neither applies nor matches an already-applied state" >&2; exit 1; \
+       fi
 WORKDIR /app/backend
 RUN python -c "from app import pipeline as p; assert (p.ML1_READ_TIMEOUT_SECONDS,p.ML_REQUEST_TIMEOUT_SECONDS,p.ML2_READ_TIMEOUT_SECONDS,p.ML2_REQUEST_TIMEOUT_SECONDS)==(180,190,90,100)"
 EXPOSE 8000

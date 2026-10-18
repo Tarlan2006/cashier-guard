@@ -4,7 +4,17 @@
 После однократной подготовки три сервиса запускает **один скрипт**
 `ml2/scripts/launch_chain.py`. Логика анализа и каталог этим скриптом не меняются.
 
-## Что проверено и что сейчас заблокировано
+Обновление после `8cf0d4c`: патч таймаутов **уже применён в main**.
+`ml2/patches/backend-ml-timeouts.patch` оставлен для истории и обратной проверки.
+Команды ниже используют только `git apply --reverse --check`, без отмены патча.
+Launcher и build-скрипт распознают готовое состояние (`timeouts already applied`);
+повторного применения нет. Несовместимое состояние останавливает запуск.
+
+## Историческая проверка Linux runtime и текущий маршрут launcher
+
+Таблица ниже относится к проверке на базе `3042ed7`. Windows-совместимость
+backend исправлена в `20d3f21` (актуально 217 passed), но выбор runtime
+в launcher этой правкой не менялся: Windows по-прежнему использует Docker.
 
 На текущем Windows `wsl --status` вернул код **50**:
 `The Windows Subsystem for Linux is not installed.`
@@ -69,12 +79,15 @@ Depth-модель для сервиса не нужна.
 # Для теста транспорта: структурная копия имеющегося каталога команды.
 # Для настоящего matching потребуется утверждённый каталог участника 4.
 & ./ml2/.venv/Scripts/python.exe ml2/scripts/prepare_transport_catalog.py
-git apply --check ml2/patches/backend-ml-timeouts.patch
+git apply --reverse --check ml2/patches/backend-ml-timeouts.patch
 docker build -f ml2/docker/backend.Dockerfile -t cashier-guard-backend-ml2:timeouts-v2 .
 ```
 
-Dockerfile устанавливает зависимости из backend lockfile и FFmpeg, применяет
-патч **только к файлам image** и проверяет значения ML1=180/190, ML2=90/100.
+Dockerfile устанавливает зависимости из backend lockfile и FFmpeg, проверяет
+состояние патча и значения ML1=180/190, ML2=90/100. В текущем main патч уже
+применён: build пишет `timeouts already applied`. Только для старого checkout
+патч применяется к файлам image; если не подходит ни прямая, ни обратная
+проверка, сборка останавливается с ошибкой.
 Рабочий `backend/app` не редактируется. Dockerfile-specific dockerignore
 разрешает только исходники backend, lockfile, contract fixtures и патч;
 данные, видео, `.env`, cache, модели и ключи в image/context не включаются.
@@ -119,7 +132,7 @@ uv sync --project backend --python python3.14 --frozen --no-dev --no-install-pro
 export ML_MODELS_DIR=/path/to/local-models
 ml2/.venv/bin/python ml2/scripts/download_models.py --source "$ML_MODELS_DIR" --verify-only
 ml2/.venv/bin/python ml2/scripts/prepare_transport_catalog.py
-git apply --check ml2/patches/backend-ml-timeouts.patch
+git apply --reverse --check ml2/patches/backend-ml-timeouts.patch
 ```
 
 2. Задайте ключ и запустите всё одной командой:
@@ -130,9 +143,11 @@ ml2/.venv/bin/python ml2/scripts/launch_chain.py --runtime native --models "$ML_
 ```
 
 Все три процесса слушают loopback. `ML1_URL=http://127.0.0.1:8001`,
-`ML2_URL=http://127.0.0.1:8002`. Backend запускается из отдельной копии
-`ml2/cache/jury/RUN/source/backend` с применённым патчем; зависимости берутся из
-`backend/.venv/bin/python`. Можно указать другой `--backend-python PYTHON`.
+`ML2_URL=http://127.0.0.1:8002`. В текущем main backend запускается без изменения
+файлов из `backend/`, с сообщением `timeouts already applied`. Только для старого
+checkout создаётся `ml2/cache/jury/RUN/source/backend` и патч применяется к этой
+копии. Зависимости берутся из `backend/.venv/bin/python`.
+Можно указать другой `--backend-python PYTHON`.
 Репозиторный `backend/app` не меняется, файловые ограничения не отключаются.
 
 ## Проверка health и тест видео 2/14

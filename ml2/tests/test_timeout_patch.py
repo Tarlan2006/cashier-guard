@@ -1,13 +1,16 @@
-"""Apply the proposed backend patch to a temporary copy and test its behavior."""
+"""Check integrated backend timeouts, deadlines and explicit timeout errors."""
 import ast
 import asyncio
 import json
+import math
+import os
 from pathlib import Path
-import shutil
 import subprocess
 import tempfile
+from dataclasses import dataclass, field
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 import httpx
 
@@ -23,12 +26,7 @@ class PipelineError(Exception):
 class TimeoutPatchTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.copy=tempfile.TemporaryDirectory()
-        root=Path(cls.copy.name);target=root/'backend/app/pipeline.py'
-        target.parent.mkdir(parents=True)
-        shutil.copyfile(ROOT.parent/'backend/app/pipeline.py',target)
-        subprocess.run(['git','apply',str(ROOT/'patches/backend-ml-timeouts.patch')],
-            cwd=root,check=True,capture_output=True)
+        target=ROOT.parent/'backend/app/pipeline.py'
         tree=ast.parse(target.read_text(encoding='utf-8'))
         names={'ML_REQUEST_TIMEOUT_SECONDS','ML2_REQUEST_TIMEOUT_SECONDS',
                'ML1_READ_TIMEOUT_SECONDS','ML2_READ_TIMEOUT_SECONDS','MAX_ML_RESPONSE_BYTES'}
@@ -36,16 +34,35 @@ class TimeoutPatchTests(unittest.TestCase):
         nodes += [node for node in tree.body if
             (isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id in names for t in node.targets))
             or (isinstance(node,ast.AsyncFunctionDef) and node.name in {'_request_json','analyze'})]
-        cls.code=compile(ast.fix_missing_locations(ast.Module(body=nodes,type_ignores=[])),'patched_pipeline.py','exec')
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.copy.cleanup()
+        cls.code=compile(ast.fix_missing_locations(ast.Module(body=nodes,type_ignores=[])),str(target),'exec')
 
     def scope(self):
         values=dict(asyncio=asyncio,httpx=httpx,json=json,PipelineError=PipelineError)
         exec(self.code,values)
         return values
+
+    def test_historical_patch_is_reverse_applicable(self):
+        subprocess.run(['git','apply','--reverse','--check',
+            str(ROOT/'patches/backend-ml-timeouts.patch')],
+            cwd=ROOT.parent,check=True,capture_output=True)
+
+    def test_job_deadline_is_positive_and_at_most_295_seconds(self):
+        # Execute the repository Settings class without importing backend's
+        # application namespace or loading a private .env into the ML process.
+        source=ROOT.parent/'backend/app/config.py'
+        tree=ast.parse(source.read_text(encoding='utf-8'))
+        settings=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='Settings')
+        values=dict(__name__=__name__,dataclass=dataclass,field=field,os=os,
+                    math=math,Path=Path,ROOT=ROOT.parent)
+        exec(compile(ast.Module(body=[settings],type_ignores=[]),str(source),'exec'),values)
+        selected=values['Settings'](api_key='unit-test-only')
+        self.assertGreater(selected.timeout,0)
+        self.assertLessEqual(selected.timeout,295)
+        with patch.dict(os.environ,{'JOB_TIMEOUT_SECONDS':'295'}):
+            values['Settings'](api_key='unit-test-only').validate()
+        with patch.dict(os.environ,{'JOB_TIMEOUT_SECONDS':'296'}):
+            with self.assertRaises(RuntimeError):
+                values['Settings'](api_key='unit-test-only').validate()
 
     def test_total_deadlines_are_stage_specific_and_errors_remain_errors(self):
         async def run(stage):

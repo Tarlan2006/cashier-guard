@@ -35,10 +35,21 @@ def require_runtime(runtime: str, platform: str = os.name) -> str:
 
 
 def prepare_native_backend(output: Path) -> Path:
-    """Patch only an ignored source copy; never edit backend/app in the checkout."""
+    """Reuse patched backend, or patch only a cache copy of an older checkout."""
     output = output.resolve()
     if not output.is_relative_to((ROOT/'cache').resolve()):
         raise ValueError('Backend test copy must be inside ignored ml2/cache')
+    patch_file = ROOT/'patches/backend-ml-timeouts.patch'
+    forward = subprocess.run(['git','apply','--check',str(patch_file)],
+        cwd=ROOT.parent,capture_output=True)
+    if forward.returncode != 0:
+        reverse = subprocess.run(['git','apply','--reverse','--check',str(patch_file)],
+            cwd=ROOT.parent,capture_output=True)
+        if reverse.returncode == 0:
+            print('timeouts already applied',flush=True)
+            return ROOT.parent/'backend'
+        raise RuntimeError('Cannot prepare backend: timeout patch neither applies nor matches '
+                           'an already-applied state. Backend files were not changed.')
     source = output/'source'
     source.mkdir(exist_ok=False)
     shutil.copytree(ROOT.parent/'backend/app', source/'backend/app',

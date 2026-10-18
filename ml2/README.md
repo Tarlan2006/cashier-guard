@@ -117,18 +117,23 @@ py -3.12 -m venv .venv
 `rtdetr_r18vd/` и `siglip-base-patch16-224/`. Конфиг: `configs/perception.json`,
 альтернативный путь — `PERCEPTION_CONFIG`. Для backend на этом CPU рекомендуется `WORKERS=1`.
 
-Тесты на синтетических данных, без исходных видео и весов (проверенный набор — 183):
+Тесты на синтетических данных, без исходных видео и весов (проверенный набор — 187):
 
 ```powershell
 .venv/Scripts/python.exe -m unittest discover -s tests
 ```
 
 `pytest` не входит в requirements.txt; команда выше соответствует проверенному запуску.
-Для тестов предлагаемого backend-патча нужен Git в PATH; патч применяется только
-к временной копии файла, рабочий backend не изменяется.
+Для проверок исторического backend-патча нужен Git в PATH. Патч уже применён
+в main (`8cf0d4c`); его файл оставлен для истории и обратной проверки.
+Тесты проверяют итоговые таймауты и ошибки, `git apply --reverse --check`,
+а также обе ветки launcher: готовый backend без изменений и старый backend
+с применением только к копии в cache. Backend в репозитории не редактируется.
+Для запуска через pytest (тестовый инструмент, не runtime-зависимость):
+`python -m pytest -q tests` из ml2.
 Чистая установка 18.10.2026 проверена в новом окружении без system-site-packages:
 `pip install -r requirements.txt` успешен, `pip check` не выявил проблем,
-Базовые 142 теста прошли; набор v8 — 160, с проверками транспорта и launcher — 183 теста.
+Базовые 142 теста прошли; набор v8 — 160, до этой правки — 183, актуальный — 187 тестов.
 HTTP-проверка выше выполнена тем же окружением с существующими
 локальными весами и однократной загрузкой моделей при старте сервиса.
 
@@ -179,23 +184,26 @@ python scripts/check_events.py cache/chain/RUN/02.job.json --kind job --rules-pa
 Для ML1 без длительности используйте `--duration SECONDS`, чтобы проверить верхнюю
 границу времени; у job длительность берётся из самого ответа.
 
-**Ограничение текущего backend на Windows:** `backend/app/media.py` использует
-Unix-only `signal.SIGXFSZ` и `resource.RLIMIT_FSIZE`. Полный прогон на этом Windows
-блокируется до ML1; эти файлы здесь не исправлялись. Нужен Linux backend либо
-отдельное исправление участника 3 с сохранением ограничений диска. ML1 работает
-на Windows самостоятельно. Подробности проверки: [eval/chain/report.md](eval/chain/report.md).
+**Историческое ограничение backend на Windows:** до `20d3f21` нормализация
+блокировалась на Unix-only `signal.SIGXFSZ` и `resource.RLIMIT_FSIZE`.
+Исправление уже в main; актуальные backend-тесты на Windows — 217 passed.
+Launcher пока сохраняет прежний Windows-маршрут через Docker/Linux backend.
+Исторические замеры: [eval/chain/report.md](eval/chain/report.md).
 
-Предлагаемый патч [patches/backend-ml-timeouts.patch](patches/backend-ml-timeouts.patch)
-увеличивает только сетевой бюджет ML1 до read=180 с / total=190 с,
-задаёт ML2 read=90 с / total=100 с и сохраняет общий дедлайн job.
-Он **не применён** к `backend/app` и не исправляет Windows-совместимость.
-Проверка и применение участником 3 из корня репозитория:
+Патч [patches/backend-ml-timeouts.patch](patches/backend-ml-timeouts.patch)
+**уже применён в main (`8cf0d4c`)**: ML1 read=180 с / total=190 с,
+ML2 read=90 с / total=100 с. Общий дедлайн job не менялся: по умолчанию 290 с,
+допустимый предел 295 с. Файл патча оставлен для истории и обратной проверки;
+повторно применять его к main не нужно. Проверка из корня репозитория
+(ничего не отменяет и не редактирует):
 
 ```powershell
-git apply --check ml2/patches/backend-ml-timeouts.patch
-# Только после согласования изменения backend:
-git apply ml2/patches/backend-ml-timeouts.patch
+git apply --reverse --check ml2/patches/backend-ml-timeouts.patch
 ```
+
+Launcher и Docker build-скрипт проверяют прямую и обратную применимость:
+старый backend патчится только в cache/image, готовый используется без повторного
+применения с сообщением `timeouts already applied`; несовместимое состояние — ошибка.
 
 Запуск трёх сервисов одной командой на Linux или Windows с Docker-backend:
 [RUNBOOK.md](eval/chain/RUNBOOK.md), `scripts/launch_chain.py`.
