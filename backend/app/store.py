@@ -60,11 +60,38 @@ class JobStore:
                     job.expires_at = iso(max(row[2], now + retention_hours * 3600, base + retention_hours * 3600))
                 self.save(job)
             self.connection.execute("PRAGMA user_version = 2")
+        self.connection.execute("""CREATE TABLE IF NOT EXISTS job_tags (
+            job_id TEXT NOT NULL REFERENCES jobs(job_id) ON DELETE CASCADE,
+            tag TEXT NOT NULL, PRIMARY KEY(job_id,tag)
+        )""")
+        self.connection.execute("CREATE INDEX IF NOT EXISTS tag_lookup ON job_tags(tag,job_id)")
+        self.connection.execute("""CREATE TABLE IF NOT EXISTS submissions (
+            request_key TEXT PRIMARY KEY,
+            job_id TEXT NOT NULL UNIQUE REFERENCES jobs(job_id) ON DELETE CASCADE,
+            fingerprint TEXT NOT NULL
+        )""")
+        self.connection.execute("""CREATE TABLE IF NOT EXISTS review_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id TEXT NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
+            changed_at TEXT NOT NULL, previous TEXT, current TEXT NOT NULL,
+            origin TEXT NOT NULL CHECK(origin IN ('review','migration_snapshot'))
+        )""")
+        self.connection.execute("CREATE INDEX IF NOT EXISTS review_log_event ON review_log(event_id,id)")
+        if version < 3:
+            for event_id, decision, comment, updated in self.connection.execute(
+                "SELECT event_id,decision,comment,updated_at FROM events WHERE updated_at IS NOT NULL"
+            ).fetchall():
+                snapshot=HumanReview(decision=decision,comment=comment,updated_at=updated)
+                self.connection.execute("INSERT INTO review_log(event_id,changed_at,previous,current,origin) VALUES (?,?,NULL,?,'migration_snapshot')",
+                                        (event_id,updated,snapshot.model_dump_json()))
+            self.connection.execute("PRAGMA user_version = 3")
         self.connection.commit()
 
-    def save(self, job: JobResponse, video: dict | None = None):
+    def save(self, job: JobResponse, video: dict | None = None, submission: tuple[str,str] | None = None):
         # Human decisions never enter the stored model response.
+        is_new = not self.connection.execute('SELECT 1 FROM jobs WHERE job_id=?',(job.job_id,)).fetchone()
         payload = job.model_dump()
+        payload.pop('tags',None)
         for event in payload['violations']:
             for name in ('event_id', 'category_id', 'human_review'):
                 event.pop(name, None)
@@ -89,6 +116,10 @@ class JobStore:
         if video:
             self.connection.execute('INSERT OR REPLACE INTO videos VALUES (?,?,?,?,NULL)',
                                     (job.job_id, video['filename'], video['size_bytes'], video['expires_at']))
+        if is_new and self.connection.execute("SELECT 1 FROM sqlite_master WHERE name='job_tags'").fetchone():
+            self.connection.executemany('INSERT INTO job_tags VALUES (?,?)',[(job.job_id,tag) for tag in job.tags])
+        if submission:
+            self.connection.execute('INSERT INTO submissions VALUES (?,?,?)',(submission[0],job.job_id,submission[1]))
         self.connection.commit()
 
     def get(self, job_id: str) -> JobResponse | None:
@@ -96,6 +127,7 @@ class JobStore:
         if not row:
             return None
         job = self._decode(row)
+        job.tags = self.tags(job_id)
         events = self.connection.execute('SELECT event_id,position,category_id,decision,comment,updated_at FROM events WHERE job_id=?', (job_id,)).fetchall()
         for event_id, position, category, decision, comment, updated in events:
             if position < len(job.violations):
@@ -187,17 +219,71 @@ class JobStore:
         return paths
 
     def update_review(self, job_id, event_id, update: ReviewUpdate):
-        updated = datetime.now(timezone.utc).isoformat()
-        cursor = self.connection.execute('UPDATE events SET decision=?,comment=?,updated_at=? WHERE job_id=? AND event_id=?',
-                                       (update.decision, update.comment, updated, job_id, event_id))
+        row=self.connection.execute('SELECT decision,comment,updated_at FROM events WHERE job_id=? AND event_id=?',(job_id,event_id)).fetchone()
+        if row is None: return None
+        previous=HumanReview(decision=row[0],comment=row[1],updated_at=row[2])
+        if (previous.decision,previous.comment)==(update.decision,update.comment): return previous
+        current=HumanReview(decision=update.decision,comment=update.comment,updated_at=datetime.now(timezone.utc).isoformat())
+        self.connection.execute('UPDATE events SET decision=?,comment=?,updated_at=? WHERE job_id=? AND event_id=?',
+                                (current.decision,current.comment,current.updated_at,job_id,event_id))
+        self.connection.execute("INSERT INTO review_log(event_id,changed_at,previous,current,origin) VALUES (?,?,?,?,'review')",
+                                (event_id,current.updated_at,previous.model_dump_json(),current.model_dump_json()))
         self.connection.commit()
-        return HumanReview(decision=update.decision,comment=update.comment,updated_at=updated) if cursor.rowcount else None
+        return current
 
-    def _where(self, *, search='', status=None, date_from=None, date_to=None, category_id=None, mode=None):
+    def tags(self, job_id):
+        return [r[0] for r in self.connection.execute('SELECT tag FROM job_tags WHERE job_id=? ORDER BY tag',(job_id,))]
+
+    def set_tags(self,job_id,tags):
+        self.connection.execute('DELETE FROM job_tags WHERE job_id=?',(job_id,))
+        self.connection.executemany('INSERT INTO job_tags VALUES (?,?)',[(job_id,tag) for tag in tags])
+        self.connection.commit()
+        return self.tags(job_id)
+
+    def submission(self,key):
+        return self.connection.execute('SELECT job_id,fingerprint FROM submissions WHERE request_key=?',(key,)).fetchone()
+
+    def review_log(self,job_id,page,page_size):
+        base=' FROM review_log l JOIN events e ON e.event_id=l.event_id WHERE e.job_id=?'
+        total=self.connection.execute('SELECT COUNT(*)'+base,(job_id,)).fetchone()[0]
+        rows=self.connection.execute('SELECT l.id,e.event_id,e.type,l.changed_at,l.previous,l.current,l.origin'+base+' ORDER BY l.id DESC LIMIT ? OFFSET ?',(job_id,page_size,(page-1)*page_size)).fetchall()
+        return dict(items=[dict(id=i,event_id=e,type=t,changed_at=at,previous=json.loads(before) if before else None,current=json.loads(after),origin=origin) for i,e,t,at,before,after,origin in rows],total=total,page=page,page_size=page_size)
+
+    def review_queue(self,page,page_size,exclude_event_id=None,**filters):
+        category=filters.pop('category_id',None)
+        where,params=self._where(status='done',**filters)
+        if category:
+            where+=' AND e.category_id=?';params.append(category)
+        base=' FROM events e JOIN jobs j ON j.job_id=e.job_id JOIN job_index i ON i.job_id=j.job_id WHERE '+where
+        total_events,reviewed=self.connection.execute("SELECT COUNT(*),COALESCE(SUM(e.decision!='unreviewed'),0)"+base,params).fetchone()
+        pending=base+" AND e.decision='unreviewed'"
+        selected_params=list(params)
+        if exclude_event_id:
+            pending+=' AND e.event_id!=?';selected_params.append(exclude_event_id)
+        rows=self.connection.execute('SELECT e.job_id,e.event_id,e.position,e.category_id,e.type'+pending+' ORDER BY i.created_at,e.job_id,e.position LIMIT ? OFFSET ?',[*selected_params,page_size,(page-1)*page_size]).fetchall()
+        items=[];cache={}
+        for jid,eid,position,category,event_type in rows:
+            if jid not in cache: cache[jid]=self.get(jid)
+            job=cache[jid]
+            if not job or job.status!='done' or position>=len(job.violations): continue
+            event=job.violations[position]
+            items.append(dict(job_id=jid,event_id=eid,category_id=category,type=event_type,timecode_sec=event.timecode_sec,filename=job.filename,tags=job.tags,created_at=job.created_at,mode=job.mode,frame=event.evidence_frames[0] if event.evidence_frames else None))
+        return dict(items=items,total=total_events-reviewed,total_events=total_events,reviewed_events=reviewed,page=page,page_size=page_size)
+
+    def queue_options(self):
+        where,params=self._where(status='done')
+        base=' FROM events e JOIN jobs j ON j.job_id=e.job_id JOIN job_index i ON i.job_id=j.job_id WHERE '+where
+        types=self.connection.execute('SELECT DISTINCT e.category_id,e.type'+base+' ORDER BY e.type',params).fetchall()
+        tags=self.connection.execute('SELECT DISTINCT t.tag FROM job_tags t JOIN jobs j ON j.job_id=t.job_id JOIN job_index i ON i.job_id=j.job_id WHERE '+where+' ORDER BY t.tag',params).fetchall()
+        return dict(types=[dict(category_id=c,type=t) for c,t in types],tags=[t[0] for t in tags])
+
+    def _where(self, *, search='', status=None, date_from=None, date_to=None, category_id=None, mode=None, tag=None):
         conditions=['(j.status=\'processing\' OR j.expires_at>?)'];params=[datetime.now(timezone.utc).timestamp()]
         for sql, value in [('instr(i.filename_search,?)>0',search.casefold() if search else None),('i.status=?',status),
                            ('i.created_at>=?',date_from),('i.created_at<?',date_to),('i.mode=?',mode)]:
             if value is not None: conditions.append(sql);params.append(value)
+        if tag:
+            conditions.append('EXISTS(SELECT 1 FROM job_tags t WHERE t.job_id=j.job_id AND t.tag=?)');params.append(tag)
         if category_id:
             conditions.append('EXISTS(SELECT 1 FROM events e WHERE e.job_id=j.job_id AND e.category_id=?)');params.append(category_id)
         return ' AND '.join(conditions),params
@@ -214,7 +300,7 @@ class JobStore:
                 COALESCE(SUM(assessment IS NULL OR assessment!='strong_evidence'),0),
                 COALESCE(SUM(decision='unreviewed'),0) FROM events WHERE job_id=?""",(job_id,)).fetchone()
             info=self.video_info(job_id)
-            items.append(dict(job_id=job_id,filename=filename,created_at=iso(created),completed_at=iso(completed) if completed else None,
+            items.append(dict(job_id=job_id,filename=filename,tags=self.tags(job_id),created_at=iso(created),completed_at=iso(completed) if completed else None,
                 expires_at=iso(expires),status=status,mode=mode,red_count=red,yellow_count=yellow,
                 unreviewed_count=unreviewed,video_available=bool(self.video_path(job_id)),
                 video_expires_at=iso(info['expires_at']) if info else None))

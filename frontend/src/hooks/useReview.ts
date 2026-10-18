@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, parseJob, request } from "../api";
+import { ApiError, parseJob, request, submitVideo } from "../api";
 import type { Job, HumanReview } from "../api";
 export const ACTIVE_JOB_KEY = "cashier-guard-current-job";
 export const API_KEY_STORAGE = "cashier-guard-key";
@@ -10,6 +10,7 @@ type Phase =
   | "restoring"
   | "processing"
   | "done"
+  | "cancelled"
   | "failed"
   | "interrupted";
 function readSaved(): SavedJob | null {
@@ -48,6 +49,7 @@ export function useReview(key: string) {
   const generation = useRef(0);
   const controller = useRef<AbortController | null>(null);
   const sending = useRef(false);
+  const submission = useRef<{ file: File; id: string } | null>(null);
   const keyRef = useRef(key);
   keyRef.current = key;
   useEffect(() => {
@@ -83,6 +85,11 @@ export function useReview(key: string) {
         );
         if (!valid()) return;
         setJob(response);
+        if (response.status === "cancelled") {
+          setPhase("cancelled");
+          setIssue(null);
+          return;
+        }
         if (response.status === "failed") {
           setPhase("failed");
           setIssue(
@@ -152,7 +159,7 @@ export function useReview(key: string) {
     setPhase("idle");
   }, []);
   const submit = useCallback(
-    async (file: File) => {
+    async (file: File, tags: string[] = []) => {
       if (
         sending.current ||
         ["uploading", "processing", "restoring"].includes(phase)
@@ -176,17 +183,13 @@ export function useReview(key: string) {
       setPhase("uploading");
       const submittedAt = Date.now();
       try {
-        const body = new FormData();
-        body.append("file", file);
-        const response = await request<{ job_id: string }>(
-          "/analyze",
-          keyRef.current.trim(),
-          {
-            method: "POST",
-            body,
-            signal: cancel.signal,
-            timeoutMs: 65_000,
-          },
+        if (submission.current?.file !== file)
+          submission.current = { file, id: crypto.randomUUID() };
+        const response = await submitVideo(
+          file,
+          keyRef.current,
+          { signal: cancel.signal, tags, requestKey: submission.current.id },
+          request,
         );
         if (token !== generation.current || cancel.signal.aborted) return;
         if (!response || !/^[a-zA-Z0-9_-]{1,100}$/.test(response.job_id))
@@ -252,6 +255,8 @@ export function useReview(key: string) {
   return {
     open,
     applyHumanReview,
+    applyTags: (tags: string[]) =>
+      setJob((current) => (current ? { ...current, tags } : current)),
     job,
     phase,
     issue,

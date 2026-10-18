@@ -1,7 +1,18 @@
 {
   "$defs": {
     "HistoryItem": {
+      "additionalProperties": false,
       "properties": {
+        "tags": {
+          "items": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Tags",
+          "type": "array"
+        },
         "job_id": {
           "title": "Job Id",
           "type": "string"
@@ -33,7 +44,8 @@
           "enum": [
             "processing",
             "done",
-            "failed"
+            "failed",
+            "cancelled"
           ],
           "title": "Status",
           "type": "string"

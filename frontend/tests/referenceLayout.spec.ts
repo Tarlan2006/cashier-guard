@@ -57,7 +57,7 @@ for (const width of [1440, 390, 320]) {
     ).toBeVisible();
     await expect(
       page.getByRole("navigation", { name: "Разделы" }).getByRole("button"),
-    ).toHaveCount(7);
+    ).toHaveCount(8);
     await expect(
       page.locator(".sidebar, .connection, .scenario-select"),
     ).toHaveCount(0);

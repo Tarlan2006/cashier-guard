@@ -1,0 +1,44 @@
+{
+  "$defs": {
+    "FilterOption": {
+      "properties": {
+        "category_id": {
+          "title": "Category Id",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category_id",
+        "type"
+      ],
+      "title": "FilterOption",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "types": {
+      "items": {
+        "$ref": "#/$defs/FilterOption"
+      },
+      "title": "Types",
+      "type": "array"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    }
+  },
+  "required": [
+    "types",
+    "tags"
+  ],
+  "title": "ReviewQueueOptions",
+  "type": "object"
+}

@@ -168,10 +168,23 @@ class AnalysisResult(BaseModel):
         return self
 
 
-class JobResponse(BaseModel):
+Tag = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
+
+
+class TagsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    tags: list[Tag] = Field(default_factory=list, max_length=10)
+
+    @field_validator("tags")
+    @classmethod
+    def distinct_tags(cls, values):
+        return list(dict.fromkeys(values))
+
+
+class JobResponse(TagsUpdate):
     job_id: str
-    status: Literal["processing", "done", "failed"]
-    stage: Literal["queued", "preparing", "analyzing", "matching", "done", "failed"]
+    status: Literal["processing", "done", "failed", "cancelled"]
+    stage: Literal["queued", "preparing", "analyzing", "matching", "done", "failed", "cancelled"]
     mode: Literal["demo", "live"]
     filename: str
     created_at: str
@@ -223,18 +236,20 @@ class JobResponse(BaseModel):
             raise ValueError("Incomplete jobs cannot contain a verdict or events")
         elif self.status == "failed" and self.stage != "failed":
             raise ValueError("Failed jobs require failed stage")
-        elif self.status == "processing" and self.stage in {"done", "failed"}:
+        elif self.status == "cancelled" and self.stage != "cancelled":
+            raise ValueError("Cancelled jobs require cancelled stage")
+        elif self.status == "processing" and self.stage in {"done", "failed", "cancelled"}:
             raise ValueError("Processing jobs require an active stage")
         return self
 
 
-class HistoryItem(BaseModel):
+class HistoryItem(TagsUpdate):
     job_id: str
     filename: str
     created_at: str
     completed_at: str | None
     expires_at: str
-    status: Literal["processing", "done", "failed"]
+    status: Literal["processing", "done", "failed", "cancelled"]
     mode: Literal["demo", "live"]
     red_count: int
     yellow_count: int
@@ -266,3 +281,52 @@ class AnalyticsResponse(BaseModel):
     unreviewed_events: int
     top_types: list[EventTypeCount]
     date_basis: Literal["created_at"] = "created_at"
+
+
+class QueueEvent(BaseModel):
+    job_id: str
+    event_id: str
+    category_id: str
+    type: str
+    timecode_sec: Seconds
+    filename: str
+    tags: list[str]
+    created_at: str
+    mode: Literal["demo", "live"]
+    frame: EvidenceFrame | None = None
+
+
+class ReviewQueuePage(BaseModel):
+    items: list[QueueEvent]
+    total: int
+    total_events: int
+    reviewed_events: int
+    page: int
+    page_size: int
+
+
+class FilterOption(BaseModel):
+    category_id: str
+    type: str
+
+
+class ReviewQueueOptions(BaseModel):
+    types: list[FilterOption]
+    tags: list[str]
+
+
+class ReviewLogEntry(BaseModel):
+    id: int
+    event_id: str
+    type: str
+    changed_at: str
+    previous: HumanReview | None
+    current: HumanReview
+    origin: Literal["review", "migration_snapshot"]
+
+
+class ReviewLogPage(BaseModel):
+    items: list[ReviewLogEntry]
+    total: int
+    page: int
+    page_size: int

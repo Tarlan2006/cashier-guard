@@ -14,6 +14,7 @@ import {
   ScanLine,
   ShieldCheck,
 } from "lucide-react";
+import { PdfButton, CancelButton, TagsEditor, DecisionLog } from "./JobTools";
 import { EventReview, decisionLabels } from "./EventReview";
 import { ReviewSummary } from "./ReviewSummary";
 import { timecode } from "../api";
@@ -42,6 +43,9 @@ type Props = {
   hideSummary?: boolean;
   onOpenSettings?: () => void;
   apiKey?: string;
+  onCancelDone?: () => void;
+  onTagsSaved?: (tags: string[]) => void;
+  decisionRevision?: number;
   onReviewSaved?: (eventId: string, value: HumanReview) => void;
 };
 export function ResultPanel({
@@ -61,6 +65,9 @@ export function ResultPanel({
   onOpenSettings,
   apiKey = "",
   onReviewSaved,
+  onCancelDone,
+  onTagsSaved,
+  decisionRevision = 0,
 }: Props) {
   const busy = ["uploading", "restoring", "processing"].includes(phase);
   const result = getResultAssessment(phase === "done" && !issue ? job : null);
@@ -108,6 +115,41 @@ export function ResultPanel({
           </span>
         )}
       </div>
+      {job && (
+        <div className="result-tools">
+          <PdfButton job={job} apiKey={apiKey} />
+          {job.status === "processing" && onCancelDone && (
+            <CancelButton
+              jobId={job.job_id}
+              apiKey={apiKey}
+              onDone={onCancelDone}
+            />
+          )}
+        </div>
+      )}
+      {job && onTagsSaved && (
+        <TagsEditor
+          key={job.job_id}
+          job={job}
+          apiKey={apiKey}
+          onSaved={onTagsSaved}
+        />
+      )}
+      {phase === "cancelled" && (
+        <div className="cancelled-result" role="status">
+          <h3>Проверка отменена</h3>
+          <p>
+            {job?.error ?? "Обработка остановлена. Запись сохранена в истории."}
+          </p>
+          <p>
+            Итогового заключения нет. Отменённая проверка не учитывается в
+            аналитике.
+          </p>
+          <button className="button secondary" onClick={onReset}>
+            Новая проверка
+          </button>
+        </div>
+      )}
       <div role="status" aria-live="polite" className="visually-hidden">
         {completed
           ? result.label
@@ -330,6 +372,7 @@ export function ResultPanel({
                     <EventReview
                       key={`${job.job_id}:${event.event_id ?? activeEvent}`}
                       event={event}
+                      expiresAt={job.expires_at}
                       jobId={job.job_id}
                       apiKey={apiKey}
                       onSaved={onReviewSaved}
@@ -474,6 +517,14 @@ export function ResultPanel({
             </p>
           )}
         </div>
+      )}
+      {job?.status === "done" && apiKey && (
+        <DecisionLog
+          key={`log:${job.job_id}`}
+          jobId={job.job_id}
+          apiKey={apiKey}
+          revision={decisionRevision}
+        />
       )}
     </section>
   );

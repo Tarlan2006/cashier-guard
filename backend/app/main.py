@@ -1,5 +1,8 @@
 import asyncio
 import hmac
+import hashlib
+import json
+import re
 import logging
 import shutil
 import sqlite3
@@ -13,15 +16,16 @@ from uuid import uuid4
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile, Query
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import media, pipeline
 from .config import ROOT, Settings
 from .middleware import UploadBudgetMiddleware
-from .models import JobResponse, HistoryPage, HumanReview, ReviewUpdate, AnalyticsResponse, ReviewedEvent
+from .models import JobResponse, HistoryPage, HumanReview, ReviewUpdate, AnalyticsResponse, ReviewedEvent, TagsUpdate, ReviewQueuePage, ReviewQueueOptions, ReviewLogPage
 from .readiness import inspect_readiness
 from .store import JobStore
+from .reports import build_report
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +63,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     normalization_slots = asyncio.Semaphore(config.normalization_workers)
     queue: asyncio.Queue[str] = asyncio.Queue(maxsize=config.queue_size)
     store: JobStore | None = None
+    pdf_slots = asyncio.Semaphore(1)
 
     def storage_bytes() -> int:
         return sum(path.stat().st_size for path in config.storage.rglob("*") if path.is_file() and not path.is_symlink())
@@ -151,6 +156,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 delete_source(path)
 
     def set_stage(record: RunningJob, stage: str):
+        if record.job.status != "processing": return
         now = time.monotonic()
         previous = record.job.stage
         record.job.timings_sec["queue" if previous == "queued" else previous] = round(now - record.stage_started, 3)
@@ -220,6 +226,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     async def process(record: RunningJob):
         def remaining_budget() -> float:
+            if record.job.status != "processing":
+                raise asyncio.CancelledError
             remaining = record.deadline - time.monotonic()
             if remaining <= 0:
                 raise TimeoutError
@@ -246,6 +254,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 finally:
                     normalization_reservations.pop(record.normalized_path, None)
             record.job.duration_sec = normalized.duration_sec
+            remaining_budget()
             result = await pipeline.analyze(record.normalized_path, record.job.duration_sec, config, record.scenario, lambda stage: set_stage(record, stage))
             # Also guard synchronous work that returns after its allotted deadline.
             if time.monotonic() >= record.deadline:
@@ -271,13 +280,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         finally:
             # Covers explicit cancellation and shutdown after the media child has stopped.
             delete_inputs(record)
+            if record.job.status == "cancelled": active.pop(record.job.job_id,None)
 
     async def worker():
         while True:
             job_id = await queue.get()
             record = active.get(job_id)
             try:
-                if record is None:
+                if record is None or record.job.status != "processing":
                     continue
                 if time.monotonic() >= record.deadline:
                     finish(record, "TIMEOUT", "Истекло время ожидания в очереди. Повторите проверку позже.")
@@ -344,7 +354,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 delete_source(path)
             store.close()
 
-    app = FastAPI(title="Cashier Guard API", version="0.3.0", lifespan=lifespan)
+    app = FastAPI(title="Cashier Guard API", version="0.4.0", lifespan=lifespan)
     app.add_middleware(UploadBudgetMiddleware, settings=config,
                        reserve_upload=reserve_upload, release_upload=release_upload)
 
@@ -372,18 +382,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         request: Request,
         file: Annotated[UploadFile, File()],
         demo_scenario: Annotated[str, Form()] = "violation",
+        tags: Annotated[str, Form()] = "[]",
+        idempotency_key: Annotated[str | None, Header()] = None,
     ):
         filename = Path(file.filename or "video.mov").name
         path = None
         try:
+            if idempotency_key and not re.fullmatch(r"[a-zA-Z0-9_-]{16,100}",idempotency_key):
+                raise HTTPException(422,"Некорректный ключ повторной отправки.")
+            try: metadata=TagsUpdate.model_validate({'tags':json.loads(tags)})
+            except ValueError: raise HTTPException(422,"Укажите не более 10 меток по 64 символа.")
             if Path(filename).suffix.lower() not in {".mov", ".mp4", ".avi", ".mkv", ".webm"}:
                 raise HTTPException(415, "Поддерживаются файлы MOV, MP4, AVI, MKV и WEBM.")
             if demo_scenario not in pipeline.DEMO_SCENARIOS:
                 raise HTTPException(422, "Неизвестный демонстрационный сценарий.")
             cleanup()
+            previous=store.submission(idempotency_key) if idempotency_key else None
             if unsaved_failures:
                 raise HTTPException(503, "Хранилище результатов недоступно. Повторите загрузку после восстановления сервиса.")
-            if queue.full() or store.count() >= config.max_jobs:
+            if not previous and (queue.full() or store.count() >= config.max_jobs):
                 raise HTTPException(503, "Очередь или хранилище результатов заполнены. Повторите загрузку позже.")
             started = request.state.upload_started_mono
             started_at = request.state.upload_started_at
@@ -394,16 +411,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             job_id = uuid4().hex
             path = config.storage / f"{job_id}.upload"
             size = 0
+            digest=hashlib.sha256()
+            digest.update(json.dumps([filename,sorted(metadata.tags),demo_scenario if config.mode=='demo' else None],ensure_ascii=False).encode())
             try:
                 async with asyncio.timeout(max(0, upload_deadline - time.monotonic())):
                     with path.open("wb") as target:
                         while chunk := await file.read(1024 * 1024):
                             size += len(chunk)
+                            digest.update(chunk)
                             if size > config.max_upload_mb * 1024 * 1024:
                                 raise HTTPException(413, f"Максимальный размер файла — {config.max_upload_mb} МБ.")
-                            if len(chunk) > available_bytes():
+                            if not previous and len(chunk) > available_bytes():
                                 raise HTTPException(503, "На сервере недостаточно места. Повторите позже.")
-                            target.write(chunk)
+                            if not previous: target.write(chunk)
                             # Account actual bytes before the next upload can be admitted.
                             target.flush()
             except TimeoutError:
@@ -413,19 +433,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             now = time.monotonic()
             if now >= upload_deadline:
                 raise HTTPException(408, "Истекло время загрузки. Выберите меньший файл или повторите попытку.")
+            fingerprint=digest.hexdigest()
+            # No await between this lookup and the durable insert: single-process
+            # admission cannot create two jobs with the same key.
+            existing=store.submission(idempotency_key) if idempotency_key else None
+            if previous and not existing:
+                raise HTTPException(409,"Срок прежней отправки истёк во время запроса. Создайте новую проверку явно.")
+            if existing:
+                if existing[1]!=fingerprint: raise HTTPException(409,"Этот ключ отправки уже использован для другого файла или меток.")
+                job=store.get(existing[0])
+                delete_source(path)
+                return {"job_id":job.job_id,"status":job.status,"mode":job.mode,"deadline_at":job.deadline_at,"expires_at":job.expires_at}
             # Concurrent uploads can have yielded while writing their file.
             if queue.full() or store.count() >= config.max_jobs:
                 raise HTTPException(503, "Очередь или хранилище результатов заполнены. Повторите позже.")
             job = JobResponse(job_id=job_id, status="processing", stage="queued", mode=config.mode,
-                              filename=filename, size_bytes=size, created_at=iso(started_at), deadline_at=iso(started_at + config.timeout),
+                              filename=filename, tags=metadata.tags, size_bytes=size, created_at=iso(started_at), deadline_at=iso(started_at + config.timeout),
                               expires_at=iso(started_at + config.timeout + config.retention_hours * 3600),
                               demo_scenario=demo_scenario if config.mode == "demo" else None,
                               timings_sec={"upload": round(now - started, 3)})
             record = RunningJob(job, path, demo_scenario, started, now, deadline, now)
-            store.save(job)
+            store.save(job,submission=(idempotency_key,fingerprint)) if idempotency_key else store.save(job)
             active[job_id] = record
             queue.put_nowait(job_id)
             record.timer = asyncio.create_task(expire(record))
+        except sqlite3.Error:
+            rollback_after_write_error()
+            if path: delete_source(path)
+            raise HTTPException(503, "Не удалось сохранить задание. Повторите отправку с тем же ключом.") from None
         except OSError:
             if path:
                 delete_source(path)
@@ -451,18 +486,37 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def history(page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
                       search: str = Query("", max_length=255), status: str | None = None,
                       date_from: datetime | None = None, date_to: datetime | None = None,
-                      category_id: str | None = Query(None, max_length=200), mode: str | None = None):
-        if status not in (None, "processing", "done", "failed") or mode not in (None, "live", "demo"):
+                      category_id: str | None = Query(None, max_length=200), mode: str | None = None, tag: str | None = Query(None,max_length=64)):
+        if status not in (None, "processing", "done", "failed", "cancelled") or mode not in (None, "live", "demo"):
             raise HTTPException(422, "Неизвестный статус или режим.")
         filters = period(date_from,date_to)
         cleanup()
-        return store.history(page,page_size,search=search,status=status,category_id=category_id,mode=mode,**filters)
+        return store.history(page,page_size,search=search,status=status,category_id=category_id,mode=mode,tag=tag,**filters)
 
     @app.get("/api/v1/analytics", response_model=AnalyticsResponse, dependencies=[Depends(authorize)])
     async def analytics(date_from: datetime | None = None, date_to: datetime | None = None):
         filters = period(date_from,date_to)
         cleanup()
         return store.analytics(**filters)
+
+    @app.get("/api/v1/submissions/{request_key}", response_model=JobResponse, dependencies=[Depends(authorize)])
+    async def find_submission(request_key: str):
+        row=store.submission(request_key)
+        if not row: raise HTTPException(404,"Отправка не найдена. Она ещё не принята сервером или срок хранения истёк.")
+        return await get_job(row[0])
+
+    @app.get("/api/v1/review-queue/options",response_model=ReviewQueueOptions,dependencies=[Depends(authorize)])
+    async def queue_options():
+        cleanup()
+        return store.queue_options()
+
+    @app.get("/api/v1/review-queue",response_model=ReviewQueuePage,dependencies=[Depends(authorize)])
+    async def review_queue(page: int=Query(1,ge=1),page_size: int=Query(20,ge=1,le=50),
+                           date_from: datetime | None=None,date_to: datetime | None=None,
+                           category_id: str | None=Query(None,max_length=200),tag: str | None=Query(None,max_length=64),
+                           exclude_event_id: str | None=Query(None,max_length=200)):
+        filters=period(date_from,date_to);cleanup()
+        return store.review_queue(page,page_size,category_id=category_id,tag=tag,exclude_event_id=exclude_event_id,**filters)
 
     @app.get("/api/v1/jobs/{job_id}", response_model=JobResponse, dependencies=[Depends(authorize)])
     async def get_job(job_id: str):
@@ -499,6 +553,58 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(503, "Не удалось сохранить решение. Повторите после восстановления хранилища.")
         if result is None: raise HTTPException(404,"Событие не найдено в этой проверке.")
         return result
+
+    @app.patch("/api/v1/jobs/{job_id}/tags",response_model=TagsUpdate,dependencies=[Depends(authorize)])
+    async def change_tags(job_id: str, update: TagsUpdate):
+        await get_job(job_id)
+        if 3*len(update.model_dump_json().encode())+16384 > available_bytes():
+            raise HTTPException(503,"Недостаточно места для сохранения меток.")
+        try: return {"tags":store.set_tags(job_id,update.tags)}
+        except sqlite3.Error:
+            rollback_after_write_error()
+            raise HTTPException(503,"Не удалось сохранить метки. Введённые данные можно отправить повторно.")
+
+    @app.get("/api/v1/jobs/{job_id}/review-log",response_model=ReviewLogPage,dependencies=[Depends(authorize)])
+    async def review_log(job_id: str,page: int=Query(1,ge=1),page_size: int=Query(20,ge=1,le=100)):
+        await get_job(job_id)
+        return store.review_log(job_id,page,page_size)
+
+    @app.post("/api/v1/jobs/{job_id}/cancel",response_model=JobResponse,dependencies=[Depends(authorize)])
+    async def cancel_job(job_id: str):
+        job=await get_job(job_id)
+        if job.status!='processing': return job
+        record=active.get(job_id)
+        cancelled=job.model_copy(deep=True)
+        cancelled.status=cancelled.stage='cancelled'
+        cancelled.verdict=None;cancelled.violations=[]
+        cancelled.error_code='CANCELLED'
+        cancelled.error='Проверка отменена пользователем. Внешний ML-сервис может завершить свой запрос отдельно; его поздний ответ не будет сохранён.'
+        cancelled.completed_at=iso(time.time())
+        cancelled.expires_at=iso(time.time()+config.retention_hours*3600)
+        if not try_save_terminal(cancelled):
+            raise HTTPException(503,"Не удалось сохранить отмену. Обновите статус и повторите запрос.")
+        if record:
+            # Publish the terminal state before yielding or cancelling I/O. Every
+            # callback/finish now sees cancelled, even a cancellation-resistant ML.
+            record.job=cancelled
+            if record.timer: record.timer.cancel()
+            if record.work_task:
+                record.work_task.cancel()
+                await asyncio.wait({record.work_task},timeout=5)
+            else:
+                delete_inputs(record);active.pop(job_id,None)
+        return await get_job(job_id)
+
+    @app.get("/api/v1/jobs/{job_id}/report.pdf",dependencies=[Depends(authorize)])
+    async def report(job_id: str):
+        if pdf_slots.locked():
+            raise HTTPException(503,"Другой отчёт ещё формируется. Повторите через несколько секунд.")
+        async with pdf_slots:
+            job=await get_job(job_id)
+            try: pdf=await asyncio.to_thread(build_report,job)
+            except Exception:
+                raise HTTPException(503,"Не удалось сформировать PDF. Результат проверки сохранён; повторите загрузку отчёта.") from None
+        return Response(pdf,media_type='application/pdf',headers={'Content-Disposition':f'attachment; filename="cashier-guard-{job_id}.pdf"','Cache-Control':'private, no-store'})
 
     @app.get("/api/v1/jobs/{job_id}/video", dependencies=[Depends(authorize)])
     async def video(job_id: str):

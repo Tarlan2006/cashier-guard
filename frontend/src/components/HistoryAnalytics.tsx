@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BarChart3, History, LoaderCircle, Search } from "lucide-react";
 import { request } from "../api";
 import type { Analytics, HistoryPage, HistoryItem } from "../api";
+import { CancelButton } from "./JobTools";
 
 export type HistoryFilters = {
   search: string;
@@ -12,6 +13,7 @@ export type HistoryFilters = {
   category_id: string;
   categoryLabel: string;
   mode: string;
+  tag?: string;
 };
 export const emptyFilters: HistoryFilters = {
   search: "",
@@ -22,12 +24,14 @@ export const emptyFilters: HistoryFilters = {
   category_id: "",
   categoryLabel: "",
   mode: "",
+  tag: "",
 };
 const dateText = (value: string) => new Date(value).toLocaleString("ru-RU");
 const statusLabels = {
   processing: "В обработке",
   done: "Завершено",
   failed: "Ошибка обработки",
+  cancelled: "Отменено",
 };
 function dateInput(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -83,7 +87,9 @@ function useRemote<T>(path: string, apiKey: string, refresh: number) {
                   item &&
                   typeof item.job_id === "string" &&
                   typeof item.filename === "string" &&
-                  ["processing", "done", "failed"].includes(item.status) &&
+                  ["processing", "done", "failed", "cancelled"].includes(
+                    item.status,
+                  ) &&
                   [
                     item.red_count,
                     item.yellow_count,
@@ -170,7 +176,7 @@ function LoadError({
     </div>
   );
 }
-function PeriodFields({
+export function PeriodFields({
   value,
   from,
   to,
@@ -254,6 +260,7 @@ export function HistoryPanel({
     status: filters.status,
     category_id: filters.category_id,
     mode: filters.mode,
+    tag: filters.tag,
     ...dates.query,
   }))
     if (value) query.set(name, value);
@@ -325,6 +332,15 @@ export function HistoryPanel({
                 placeholder="Поиск по названию"
                 maxLength={255}
                 onChange={(e) => setDraft({ ...draft, search: e.target.value })}
+              />
+            </label>
+            <label>
+              Метка
+              <input
+                value={draft.tag ?? ""}
+                maxLength={64}
+                placeholder="Точная метка"
+                onChange={(e) => setDraft({ ...draft, tag: e.target.value })}
               />
             </label>
             <PeriodFields
@@ -435,6 +451,9 @@ export function HistoryPanel({
                     <article className="history-item">
                       <div className="history-file">
                         <h2>{item.filename}</h2>
+                        {!!item.tags?.length && (
+                          <p className="tag-list">{item.tags.join(" · ")}</p>
+                        )}
                         <time dateTime={item.created_at}>
                           {dateText(item.created_at)}
                         </time>
@@ -464,6 +483,13 @@ export function HistoryPanel({
                         </div>
                       </dl>
                       <div className="history-actions">
+                        {item.status === "processing" && (
+                          <CancelButton
+                            jobId={item.job_id}
+                            apiKey={apiKey}
+                            onDone={() => setRefresh((n) => n + 1)}
+                          />
+                        )}
                         <button
                           className="button secondary"
                           disabled={!canOpen}

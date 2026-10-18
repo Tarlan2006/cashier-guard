@@ -20,7 +20,8 @@ export type WorkspaceTab =
   | "architecture"
   | "settings"
   | "history"
-  | "analytics";
+  | "analytics"
+  | "review-queue";
 
 function verifiedRule(rule: Rule | null): rule is Rule {
   if (
@@ -49,7 +50,7 @@ export function WorkspaceSections({
 }: {
   tab: Exclude<
     WorkspaceTab,
-    "workspace" | "settings" | "history" | "analytics"
+    "workspace" | "settings" | "history" | "analytics" | "review-queue"
   >;
   job: Job | null;
 }) {
