@@ -20,7 +20,10 @@ DEMO_SCENARIOS = (
 )
 MAX_ML_RESPONSE_BYTES = 32 * 1024 * 1024
 MAX_CATALOG_BYTES = 4 * 1024 * 1024
-ML_REQUEST_TIMEOUT_SECONDS = 120
+ML_REQUEST_TIMEOUT_SECONDS = 190
+ML2_REQUEST_TIMEOUT_SECONDS = 100
+ML1_READ_TIMEOUT_SECONDS = 180
+ML2_READ_TIMEOUT_SECONDS = 90
 DEMO_RULES_PATH = Path(__file__).resolve().parents[2] / "contracts" / "fixtures" / "demo-rules.json"
 
 
@@ -58,7 +61,8 @@ async def frame_at(path: Path, timestamp: float) -> EvidenceFrame:
 async def _request_json(client: httpx.AsyncClient, url: str, stage: str, **kwargs) -> object:
     try:
         # Bound both inactivity and total request time; backend bounds the whole job.
-        async with asyncio.timeout(ML_REQUEST_TIMEOUT_SECONDS):
+        total_timeout = ML_REQUEST_TIMEOUT_SECONDS if stage == "ml1" else ML2_REQUEST_TIMEOUT_SECONDS
+        async with asyncio.timeout(total_timeout):
             async with client.stream("POST", url, **kwargs) as response:
                 response.raise_for_status()
                 if (response.headers.get("x-analysis-status", "").lower() in {"partial", "incomplete"}
@@ -184,13 +188,14 @@ async def analyze(
         async with httpx.AsyncClient(timeout=httpx.Timeout(90, connect=5, read=90, write=30, pool=5), trust_env=False, follow_redirects=False) as client:
             with path.open("rb") as video:
                 first = await _request_json(client, f"{settings.ml1_url.rstrip('/')}/analyze", "ml1",
-                                            files={"file": ("video.mp4", video, "video/mp4")})
+                                            files={"file": ("video.mp4", video, "video/mp4")},
+                                            timeout=httpx.Timeout(ML1_READ_TIMEOUT_SECONDS, connect=5, write=30, pool=5))
             observations = _validate_observations(first, duration)
             stage("matching")
             second = await _request_json(client, f"{settings.ml2_url.rstrip('/')}/match", "ml2", json={
                 **observations.model_dump(), "duration_sec": duration,
                 "rules": [rule.model_dump() for rule in rules],
-            })
+            }, timeout=httpx.Timeout(ML2_READ_TIMEOUT_SECONDS, connect=5, write=30, pool=5))
             return _validate_result(second, duration, rules)
     finally:
         if on_timing:
