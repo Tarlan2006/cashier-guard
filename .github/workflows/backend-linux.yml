@@ -5,11 +5,15 @@ on:
     branches: [main]
     paths:
       - backend/**
+      - scripts/start_stack.py
+      - scripts/start-stack.sh
       - contracts/fixtures/**
       - .github/workflows/backend-linux.yml
   pull_request:
     paths:
       - backend/**
+      - scripts/start_stack.py
+      - scripts/start-stack.sh
       - contracts/fixtures/**
       - .github/workflows/backend-linux.yml
   workflow_dispatch:
